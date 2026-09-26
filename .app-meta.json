@@ -1,0 +1,7 @@
+{
+  "description": "Israeli vehicle lookup by plate number (data.gov.il registry)",
+  "icon": "Car",
+  "sharedLibs": [
+    "android-feedback-lib"
+  ]
+}
