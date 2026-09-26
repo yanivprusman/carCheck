@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Compose draws the UI; the Activity theme just needs to be a no-action-bar
-         theme that doesn't require the appcompat/material XML libraries. -->
+         theme that doesn't require the appcompat/material XML libraries.
+         windowBackground matches the page colour so a cold start does not flash
+         white before the first frame (values-night overrides it). -->
     <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/page</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

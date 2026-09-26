@@ -1,0 +1,128 @@
+package com.automatelinux.carCheck.data
+
+/** Which registry the primary record came from — it decides which facts can exist at all. */
+enum class VehicleKind { Car, Motorcycle, Heavy, Public, PersonalImport }
+
+sealed class RegistrationStatus {
+    /** On the road. [validUntil] is the licence expiry (ISO date) when the registry has it. */
+    data class Active(val validUntil: String?) : RegistrationStatus()
+    /** Final cancellation — scrapped, exported, or written off. */
+    data class OffRoad(val date: String?) : RegistrationStatus()
+    /** Registered but not licensed: never renewed, or between owners. */
+    data object Inactive : RegistrationStatus()
+}
+
+data class Recall(
+    val id: Int,
+    val type: String?,
+    val category: String?,
+    val description: String?,
+    val fix: String?,
+    val importer: String?,
+    val phone: String?,
+    val website: String?,
+    val opened: String?,
+)
+
+data class OwnershipChange(val yearMonth: String, val ownership: String)
+
+/** A safety or driver-assistance system the model file says this vehicle has. */
+data class SafetyFeature(val name: String, val source: String?)
+
+/**
+ * Everything the registries know about one plate, already joined.
+ *
+ * Nulls mean "the registry does not say", and every section of the report is
+ * built from whichever fields exist, so a motorcycle and a bus get honest,
+ * shorter reports rather than rows of dashes.
+ */
+data class VehicleReport(
+    val plate: Plate,
+    val kind: VehicleKind,
+    val status: RegistrationStatus,
+
+    // Identity
+    val make: String?,
+    val makeCountry: String?,
+    val model: String?,
+    val commercialName: String?,
+    val trim: String?,
+    val year: Int?,
+    val color: String?,
+    val bodyType: String?,
+    val vehicleType: String?,
+    val euCategory: String?,
+
+    // Licensing
+    val lastTest: String?,
+    val onRoad: String?,
+    val firstRegistration: String?,
+    val ownership: String?,
+    val chassis: String?,
+    val engineNumber: String?,
+    val ownershipHistory: List<OwnershipChange>,
+
+    // Engine and drivetrain
+    val fuel: String?,
+    val engineModel: String?,
+    val displacementCc: Int?,
+    val horsepower: Int?,
+    val drive: String?,
+    val automatic: Boolean?,
+    val driveTechnology: String?,
+    val grossWeightKg: Int?,
+    val curbWeightKg: Int?,
+    val towBrakedKg: Int?,
+    val towUnbrakedKg: Int?,
+    val towHitch: Boolean?,
+
+    // Body
+    val doors: Int?,
+    val seats: Int?,
+    val tyreFront: String?,
+    val tyreRear: String?,
+    val tyreLoadCode: String?,
+    val tyreSpeedCode: String?,
+
+    // Safety
+    val safetyLevel: Int?,
+    val safetyScore: Double?,
+    val airbags: Int?,
+    val safetyFeatures: List<SafetyFeature>,
+
+    // Emissions
+    val pollutionGroup: Int?,
+    val greenIndex: Double?,
+    val co2Wltp: Double?,
+    val noxWltp: Double?,
+    val pmWltp: Double?,
+    val particleFilterFitted: String?,
+
+    // History
+    val kmAtLastTest: Int?,
+    val structuralChange: Boolean?,
+    val gasConversion: Boolean?,
+    val colorChange: Boolean?,
+    val tyreChange: Boolean?,
+    val originality: String?,
+
+    // Flags
+    val disabledTagSince: String?,
+    val importType: String?,
+    val recalls: List<Recall>,
+
+    // Money
+    val listPriceNis: Int?,
+    val importer: String?,
+
+    /** Registry files that failed to answer this time; their sections say so instead of going missing. */
+    val unavailable: List<String>,
+    val dataAsOf: String?,
+) {
+    /** "טויוטה קורולה", or whatever the registry can say. */
+    val title: String
+        get() = listOfNotNull(make, commercialName ?: model).joinToString(" ").ifBlank { plate.display }
+
+    val subtitle: String
+        get() = listOfNotNull(year?.toString(), fuel, color).joinToString(" · ")
+}

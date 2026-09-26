@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CarCheck</string>
+    <!-- The name on the home screen. Hebrew, like the app: "בדיקת רכב" is the
+         phrase an Israeli types into a search box for exactly this. -->
+    <string name="app_name">בדיקת רכב</string>
 </resources>

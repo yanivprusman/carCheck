@@ -1,34 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# carCheck — בדיקת רכב
 
-## Getting Started
+Type an Israeli registration number, get everything the Ministry of Transport
+publishes about that vehicle: make and model, year, colour, licence expiry,
+ownership and every change of hands, odometer at the last test, structural /
+colour / gas-conversion flags, open recalls with the importer's phone, engine
+and towing figures, safety systems, pollution group, and the importer's list
+price when it was new.
 
-First, run the development server:
+## Where the data comes from
+
+Every registry is a CKAN datastore on data.gov.il (`datastore_search`, keyed by
+`mispar_rechev`). The phone queries them **directly** — a lookup works from any
+network, with nothing at home switched on. Resource ids and what each file
+holds are documented in `mobile/shared/.../data/GovIl.kt`; the joins (model
+spec, list price, recall notices are keyed by model codes, not by plate) live in
+`VehicleLookup.kt`.
+
+The main private-car file is replaced daily and is **empty for hours while it
+reloads**. The app tells the difference between "no such plate" and "the
+registry is mid-reload" by probing the file's row count, and says which.
+
+## Layout
+
+- `mobile/` — the app. KMP / Compose Multiplatform: all UI, models and the
+  lookup are in `shared/commonMain`; `app/` is the Android launcher, a ViewModel
+  wrapper, share/dial/copy intents, and the dev-flavour feedback widget.
+- `app/`, `lib/` — the Next.js side: this landing page and the feedback-lib
+  backend the dev-flavour widget reports to. It serves no vehicle data.
+
+## Build and install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+androidDeploy carCheck            # commit first: the APK embeds the commit hash
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Or by hand: `cd mobile && ./gradlew :app:assembleDevDebug`, then install
+`app/build/outputs/apk/dev/debug/app-dev-debug.apk` with
+`/opt/automateLinux/utilities/chunked-adb-install.sh` (never a raw
+`adb install` over the WireGuard serial).

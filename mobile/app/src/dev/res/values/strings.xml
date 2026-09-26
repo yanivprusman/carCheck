@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dev installs alongside prod (applicationIdSuffix ".dev"), so the two
+         have to be tellable apart in the launcher. -->
+    <string name="app_name">בדיקת רכב dev</string>
+</resources>
