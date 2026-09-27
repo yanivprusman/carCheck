@@ -2,6 +2,7 @@ package com.automatelinux.carCheck
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.automatelinux.carCheck.data.OcrLine
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
@@ -20,6 +21,7 @@ import kotlin.coroutines.resumeWithException
  * lines is the plate is decided in the shared [com.automatelinux.carCheck.data.PlateOcr].
  */
 object PlateScanner {
+    private const val TAG = "PlateScanner"
     // One recogniser for the process: the first call warms the model up, later ones are instant.
     private val recognizer: TextRecognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
@@ -28,9 +30,14 @@ object PlateScanner {
         // photo taken in portrait is read upright.
         val image = withContext(Dispatchers.IO) { InputImage.fromFilePath(context, uri) }
         val text = recognizer.process(image).await()
-        return text.textBlocks.flatMap { block ->
+        val lines = text.textBlocks.flatMap { block ->
             block.lines.map { line -> OcrLine(line.text, line.boundingBox?.height()?.toFloat() ?: 0f) }
         }
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "${image.width}x${image.height}: ${lines.size} lines")
+            for (l in lines) Log.d(TAG, "  h=${l.height.toInt()} \"${l.text}\"")
+        }
+        return lines
     }
 
     private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->

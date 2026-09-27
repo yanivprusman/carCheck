@@ -25,6 +25,18 @@ class PlateOcrTest {
     }
 
     @Test
+    fun stripsTheBandGluedToTheNumber() {
+        assertEquals(listOf("43458203"), plates("I434:58-203"))    // as read off the Ducato listing
+        assertEquals(listOf("43458203"), plates("1434:58-203"))    // the band's I read as a digit
+        assertEquals(listOf("43458203"), plates("|434-58-203"))
+        assertEquals(listOf("43458203"), plates("IL434-58-203"))
+        assertEquals(listOf("43458203"), plates("IL 434-58-203"))
+        assertEquals(listOf("43458203"), plates("I43458203"))
+        assertEquals(listOf("1234567"), plates("112-345-67"))      // seven digits with the band's 1
+        assertEquals(emptyList(), plates("143458203"))             // no separators: cannot be told from an ID
+    }
+
+    @Test
     fun ignoresWhatIsNotAPlate() {
         assertEquals(emptyList(), plates("28.09.2026"))       // a date: a four-digit group
         assertEquals(emptyList(), plates("28.9.2026"))        // seven digits, still a date
