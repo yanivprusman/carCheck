@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,16 +35,20 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.automatelinux.carCheck.data.Plate
+import com.automatelinux.carCheck.data.PlateCandidate
 import com.automatelinux.carCheck.data.RecentEntry
 import com.automatelinux.carCheck.data.colorSwatch
 import com.automatelinux.carCheck.ui.components.PlateInput
@@ -55,9 +63,12 @@ fun SearchScreen(
     onOpenRecent: (String) -> Unit,
     onRemoveRecent: (String) -> Unit,
     onClearRecents: () -> Unit,
+    onScan: (ImageSource) -> Unit,
+    onPickPlate: (String) -> Unit,
 ) {
     val p = LocalPalette.current
-    val canSearch = state.input.length >= Plate.MIN_DIGITS && !state.busy
+    val working = state.busy || state.reading
+    val canSearch = state.input.length >= Plate.MIN_DIGITS && !working
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
@@ -80,7 +91,7 @@ fun SearchScreen(
                         digits = state.input,
                         onDigitsChange = onInput,
                         onSearch = { if (canSearch) onSearch() },
-                        enabled = !state.busy,
+                        enabled = !working,
                         modifier = Modifier.fillMaxWidth(),
                         height = 84.dp,
                     )
@@ -98,15 +109,22 @@ fun SearchScreen(
                         disabledContentColor = p.onAccent.copy(alpha = 0.8f),
                     ),
                 ) {
-                    if (state.busy) {
+                    if (working) {
                         CircularProgressIndicator(Modifier.size(22.dp), color = p.onAccent, strokeWidth = 2.5.dp)
                         Spacer(Modifier.width(12.dp))
-                        Text("שואל את משרד התחבורה…", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (state.reading) "קורא את המספר מהתמונה…" else "שואל את משרד התחבורה…",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                     } else {
                         Icon(Icons.Filled.Search, contentDescription = null, Modifier.size(22.dp))
                         Spacer(Modifier.width(10.dp))
                         Text("בדוק רכב", style = MaterialTheme.typography.titleMedium)
                     }
+                }
+                ScanRow(enabled = !working, onScan = onScan, modifier = Modifier.padding(top = 10.dp))
+                if (state.imagePlates.isNotEmpty()) {
+                    ImagePlatesCard(state.imagePlates, chosen = state.input, onPick = onPickPlate, modifier = Modifier.padding(top = 14.dp))
                 }
                 state.notice?.let { NoticeCard(it, Modifier.padding(top = 14.dp)) }
             }
@@ -148,6 +166,12 @@ private fun NoticeCard(notice: CarCheckModel.Notice, modifier: Modifier = Modifi
         )
         CarCheckModel.Notice.Offline -> Quad("אין חיבור לאינטרנט", "הבדיקה שואלת את data.gov.il ישירות, וצריך רשת בשביל זה.", p.badBg, p.bad)
         is CarCheckModel.Notice.Failed -> Quad("data.gov.il לא ענה", "השרת של הממשלה החזיר שגיאה (${notice.detail}). נסה שוב בעוד רגע.", p.badBg, p.bad)
+        CarCheckModel.Notice.NoPlateInImage -> Quad(
+            "לא זוהה מספר רישוי בתמונה",
+            "צריך שהלוחית תהיה בתוך התמונה, ישרה וקריאה. אפשר לנסות תמונה אחרת, או פשוט להקליד את המספר.",
+            p.warnBg, p.warn,
+        )
+        is CarCheckModel.Notice.ImageFailed -> Quad("לא הצלחתי לפתוח את התמונה", "הטלפון החזיר שגיאה (${notice.detail}).", p.badBg, p.bad)
     }
     Column(
         modifier
@@ -162,6 +186,93 @@ private fun NoticeCard(notice: CarCheckModel.Notice, modifier: Modifier = Modifi
 }
 
 private data class Quad(val a: String, val b: String, val c: Color, val d: Color)
+
+/** Camera and gallery: the plate is read off the picture, so a listing's photo is enough. */
+@Composable
+private fun ScanRow(enabled: Boolean, onScan: (ImageSource) -> Unit, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Column(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ScanButton("צלם לוחית", Icons.Filled.PhotoCamera, enabled, Modifier.weight(1f).testTag("scan-camera")) { onScan(ImageSource.Camera) }
+            ScanButton("מתמונה", Icons.Filled.PhotoLibrary, enabled, Modifier.weight(1f).testTag("scan-gallery")) { onScan(ImageSource.Gallery) }
+        }
+        Text(
+            "אפשר גם לשתף תמונה של רכב מכל אפליקציה אל בדיקת רכב",
+            style = MaterialTheme.typography.bodySmall,
+            color = p.inkDim,
+            modifier = Modifier.padding(top = 8.dp, start = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun ScanButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    enabled: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    val p = LocalPalette.current
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (enabled) p.hairline else p.hairline.copy(alpha = 0.5f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = p.panel,
+            contentColor = p.ink,
+            disabledContainerColor = p.panel.copy(alpha = 0.6f),
+            disabledContentColor = p.inkDim.copy(alpha = 0.6f),
+        ),
+    ) {
+        Icon(icon, contentDescription = null, Modifier.size(20.dp), tint = if (enabled) p.accent else p.inkDim.copy(alpha = 0.6f))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/** Every plate the picture held, nearest first; the one being looked up is outlined. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ImagePlatesCard(plates: List<PlateCandidate>, chosen: String, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(p.panel)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Text("בתמונה יש כמה מספרים", style = MaterialTheme.typography.titleMedium, color = p.ink)
+        Text(
+            "הגדול ביותר הוא בדרך כלל הרכב שצולם. הקש על מספר כדי לבדוק אותו.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = p.inkDim,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        FlowRow(
+            Modifier.fillMaxWidth().padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            for (c in plates) {
+                val picked = c.digits == chosen
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .then(if (picked) Modifier.border(2.dp, p.accent, RoundedCornerShape(8.dp)) else Modifier)
+                        .clickable { onPick(c.digits) }
+                        .padding(3.dp)
+                        .testTag("image-plate-${c.digits}"),
+                ) {
+                    PlateView(Plate.format(c.digits), height = 34.dp)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun EmptyHint(modifier: Modifier = Modifier) {

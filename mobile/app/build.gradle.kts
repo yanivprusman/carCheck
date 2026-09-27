@@ -98,5 +98,9 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.activity.compose)
 
+    // Reads a plate off a picture on the phone itself (bundled Latin model, ~4 MB, no
+    // download and no server) — the picture never leaves the device.
+    implementation(libs.mlkit.text.recognition)
+
     "devImplementation"(project(":feedback-lib"))
 }

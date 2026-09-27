@@ -21,6 +21,12 @@ data class Plate(val digits: String) {
         const val MIN_DIGITS = 2
         const val MAX_DIGITS = 8
 
+        /**
+         * Read off a picture, a number is trusted only at a modern plate's length. Older
+         * short plates exist, but a picture is full of short digit runs that are not plates.
+         */
+        const val PHOTO_MIN_DIGITS = 7
+
         fun parse(raw: String): Plate? {
             val d = raw.filter { it.isDigit() }.trimStart('0')
             return if (d.length in MIN_DIGITS..MAX_DIGITS) Plate(d) else null

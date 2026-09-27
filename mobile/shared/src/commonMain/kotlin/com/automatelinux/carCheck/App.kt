@@ -51,6 +51,8 @@ fun App(model: CarCheckModel, host: HostActions) {
                             onOpenRecent = model::search,
                             onRemoveRecent = model::removeRecent,
                             onClearRecents = model::clearRecents,
+                            onScan = host::scanPlate,
+                            onPickPlate = model::search,
                         )
                     } else {
                         ReportScreen(report = report, host = host, onBack = model::back)
