@@ -127,6 +127,10 @@ data class VehicleReport(
      * production year, colour, ownership and chassis are missing until the reload ends.
      */
     val mainRegistryRefreshing: Boolean = false,
+    /** Set when the main-file row came from our backend's copy: when that copied file was uploaded (UTC). */
+    val mirrorAsOf: String? = null,
+    /** Why the copy could not be used, when it was tried and the sibling files answered instead. */
+    val mirrorNote: String? = null,
 ) {
     /** "טויוטה קורולה", or whatever the registry can say. */
     val title: String

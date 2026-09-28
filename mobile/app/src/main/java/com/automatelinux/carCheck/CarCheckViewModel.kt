@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.automatelinux.carCheck.data.RecentStore
+import com.automatelinux.carCheck.data.RegistryMirror
+import com.automatelinux.carCheck.data.VehicleLookup
 import com.automatelinux.carCheck.ui.CarCheckModel
 import com.russhwolf.settings.SharedPreferencesSettings
 
@@ -13,5 +15,8 @@ class CarCheckViewModel(app: Application) : AndroidViewModel(app) {
     val model = CarCheckModel(
         scope = viewModelScope,
         recents = RecentStore(SharedPreferencesSettings(app.getSharedPreferences("carCheck", Context.MODE_PRIVATE))),
+        // The backend this build was made for keeps a copy of the main registry file, for the
+        // hours each night when data.gov.il's own table is empty.
+        lookup = VehicleLookup(mirror = RegistryMirror(BuildConfig.API_BASE_URL)),
     )
 }

@@ -28,7 +28,7 @@ sealed class LookupResult {
  * files that fail are named in [VehicleReport.unavailable] instead of silently
  * leaving their section out.
  */
-class VehicleLookup {
+class VehicleLookup(private val mirror: RegistryMirror? = null) {
 
     private class Wave1(
         val main: Rows?, val extra: Rows?, val motorcycle: Rows?, val heavy: Rows?, val public: Rows?,
@@ -89,10 +89,13 @@ class VehicleLookup {
             ?: firstRecord(w.offRoad2010)?.let { it to VehicleKind.Car }
             ?: firstRecord(w.offRoad2000)?.let { it to VehicleKind.Car }
 
-        // The main registry is empty for hours after each nightly upload. A car that is in its
-        // sibling file (the same rows, the other half of the columns) still exists — the report
-        // is then built from that and every other file that answered, and says what it lacks.
+        // The main registry is empty for hours after each nightly upload. The copy our own
+        // backend keeps of the last complete file answers first; failing that, the sibling
+        // file (the same rows, the other half of the columns) still proves the car exists,
+        // and the report is built from it and every other file, and says what it lacks.
         var mainRefreshing = false
+        var mirrorAsOf: String? = null
+        var mirrorNote: String? = null
         val (rec, kind) = primary ?: run {
             val refreshing = try {
                 GovIl.search(Res.PRIVATE, null, 1).total == 0L
@@ -100,11 +103,30 @@ class VehicleLookup {
                 return if (e.kind == FailureKind.Offline) LookupResult.Offline else LookupResult.Failed(e.message ?: "probe")
             }
             if (!refreshing) return LookupResult.NotFound
-            val sibling = firstRecord(w.extra) ?: return LookupResult.RegistryRefreshing
             mainRefreshing = true
-            sibling to VehicleKind.Car
+            when (val m = mirror?.privateRecord(plate)) {
+                is RegistryMirror.Result.Found -> {
+                    mirrorAsOf = m.fileModified
+                    m.record to VehicleKind.Car
+                }
+                is RegistryMirror.Result.NotFound -> {
+                    mirrorAsOf = m.fileModified
+                    // Not in the copy: registered since it was taken, or not a private car at all.
+                    val sibling = firstRecord(w.extra) ?: return LookupResult.RegistryRefreshing
+                    mirrorAsOf = null
+                    mirrorNote = "הרכב לא נמצא בעותק השמור מ-${formatUtcDateTime(m.fileModified) ?: "?"}"
+                    sibling to VehicleKind.Car
+                }
+                is RegistryMirror.Result.Unavailable -> {
+                    mirrorNote = m.reason
+                    (firstRecord(w.extra) ?: return LookupResult.RegistryRefreshing) to VehicleKind.Car
+                }
+                null -> (firstRecord(w.extra) ?: return LookupResult.RegistryRefreshing) to VehicleKind.Car
+            }
         }
         val status: RegistrationStatus = when {
+            // A row from the copy is a main-file row: its licensing state is as of the copy.
+            mainRefreshing && mirrorAsOf != null -> RegistrationStatus.Active(rec.text("tokef_dt"))
             mainRefreshing -> RegistrationStatus.Unknown
             firstRecord(w.main) != null || firstRecord(w.import) != null || firstRecord(w.motorcycle) != null ||
                 firstRecord(w.heavy) != null -> RegistrationStatus.Active(rec.text("tokef_dt"))
@@ -240,6 +262,8 @@ class VehicleLookup {
             unavailable = unavailable.distinct(),
             dataAsOf = w.asOf,
             mainRegistryRefreshing = mainRefreshing,
+            mirrorAsOf = mirrorAsOf,
+            mirrorNote = mirrorNote,
         )
         return LookupResult.Found(report)
     }

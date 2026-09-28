@@ -6,11 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync-registry": "node scripts/sync-registry.mjs"
   },
   "dependencies": {
     "@addnewfeature/feedback-lib-launcher": "file:../../automateLinux/packages/feedback-lib-launcher",
     "@claudecontrol/feedback-lib": "file:../../automateLinux/packages/feedback-lib",
+    "mysql2": "^3.24.4",
     "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8"

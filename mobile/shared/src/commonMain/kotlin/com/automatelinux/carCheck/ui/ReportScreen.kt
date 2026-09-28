@@ -187,6 +187,8 @@ private fun statusOf(report: VehicleReport): Pair<String, Tone> = when (val s = 
 @Composable
 private fun RefreshingBanner(report: VehicleReport) {
     val p = LocalPalette.current
+    val since = formatUtcDateTime(report.dataAsOf)?.let { " (מאז $it)" } ?: ""
+    val fromCopy = report.mirrorAsOf != null
     Column(
         Modifier
             .fillMaxWidth()
@@ -196,16 +198,22 @@ private fun RefreshingBanner(report: VehicleReport) {
             .border(1.dp, p.warn.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
             .padding(16.dp),
     ) {
-        Text("דוח חלקי — המאגר הראשי מתעדכן", style = MaterialTheme.typography.titleMedium, color = p.warn)
         Text(
-            "משרד התחבורה מחליף עכשיו את קובץ הרישוי הראשי ב-data.gov.il" +
-                (formatUtcDateTime(report.dataAsOf)?.let { " (מאז $it)" } ?: "") +
-                ", וזה לוקח כמה שעות. מה שכאן מגיע מהקבצים הנלווים: הדגם והמפרט שלו, ק״מ בטסט האחרון, " +
-                "גרירה וצמיגים, ריקולים ותג נכה. עד שהחלפה תסתיים חסרים תוקף הטסט, שנת הייצור, הצבע, הבעלות ומספר השלדה.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = p.ink,
-            modifier = Modifier.padding(top = 4.dp),
+            if (fromCopy) "המאגר הראשי מתעדכן — הדוח מהעותק השמור" else "דוח חלקי — המאגר הראשי מתעדכן",
+            style = MaterialTheme.typography.titleMedium,
+            color = p.warn,
         )
+        val body = if (fromCopy) {
+            "משרד התחבורה מחליף עכשיו את קובץ הרישוי הראשי ב-data.gov.il$since, וזה לוקח כמה שעות. " +
+                "הדוח מבוסס על העותק ששמרנו מהקובץ הקודם, שהועלה ב-${formatUtcDateTime(report.mirrorAsOf) ?: "?"}. " +
+                "טסט או בעלות שהשתנו מאז יופיעו כשההחלפה תסתיים."
+        } else {
+            "משרד התחבורה מחליף עכשיו את קובץ הרישוי הראשי ב-data.gov.il$since, וזה לוקח כמה שעות. " +
+                "מה שכאן מגיע מהקבצים הנלווים: הדגם והמפרט שלו, ק״מ בטסט האחרון, גרירה וצמיגים, ריקולים ותג נכה. " +
+                "עד שההחלפה תסתיים חסרים תוקף הטסט, שנת הייצור, הצבע, הבעלות ומספר השלדה." +
+                (report.mirrorNote?.let { " העותק השמור לא עזר הפעם: $it." } ?: "")
+        }
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = p.ink, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
@@ -536,7 +544,7 @@ private fun Footer(report: VehicleReport) {
             )
         }
         Text(
-            "מקור: משרד התחבורה, data.gov.il" + (formatDate(report.dataAsOf)?.let { " · נכון ל-$it" } ?: ""),
+            "מקור: משרד התחבורה, data.gov.il" + (formatDate(report.mirrorAsOf ?: report.dataAsOf)?.let { " · נכון ל-$it" } ?: ""),
             style = MaterialTheme.typography.bodyMedium,
             color = p.inkDim,
         )

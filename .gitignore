@@ -45,3 +45,6 @@ mobile/feedback-lib/
 mobile/build-logic/
 mobile/local.properties
 mobile/.env
+
+# local env
+.env*.local
