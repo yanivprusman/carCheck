@@ -16,6 +16,7 @@ fun VehicleReport.shareText(): String {
         is RegistrationStatus.Active -> formatDate(s.validUntil)?.let { sb.append("טסט בתוקף עד ").append(it).append('\n') }
         is RegistrationStatus.OffRoad -> sb.append("ירד מהכביש").append(formatDate(s.date)?.let { " ב-$it" } ?: "").append('\n')
         RegistrationStatus.Inactive -> sb.append("לא פעיל — הרישיון לא חודש\n")
+        RegistrationStatus.Unknown -> sb.append("דוח חלקי — המאגר הראשי של משרד התחבורה מתעדכן כרגע\n")
     }
     ownership?.let { sb.append("בעלות: ").append(it).append('\n') }
     if (ownershipHistory.isNotEmpty()) sb.append("ידיים: ").append(ownershipHistory.size).append('\n')

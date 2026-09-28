@@ -51,6 +51,7 @@ import com.automatelinux.carCheck.data.colorSwatch
 import com.automatelinux.carCheck.data.formatDate
 import com.automatelinux.carCheck.data.formatDouble
 import com.automatelinux.carCheck.data.formatInt
+import com.automatelinux.carCheck.data.formatUtcDateTime
 import com.automatelinux.carCheck.data.isoDateOrNull
 import com.automatelinux.carCheck.data.today
 import com.automatelinux.carCheck.ui.components.PlateView
@@ -74,6 +75,7 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
                 .navigationBarsPadding(),
         ) {
             Headline(report)
+            if (report.mainRegistryRefreshing) RefreshingBanner(report)
             QuickStats(report)
             for (r in report.recalls) RecallCard(r, host)
             Licensing(report, host)
@@ -178,6 +180,33 @@ private fun statusOf(report: VehicleReport): Pair<String, Tone> = when (val s = 
     }
     is RegistrationStatus.OffRoad -> ("ירד מהכביש" + (formatDate(s.date)?.let { " · $it" } ?: "")) to Tone.Bad
     RegistrationStatus.Inactive -> "לא פעיל · הרישיון לא חודש" to Tone.Warn
+    RegistrationStatus.Unknown -> "מצב הרישוי לא ידוע כרגע" to Tone.Warn
+}
+
+/** The main file is mid-reload: say what this report is built from and what it cannot say yet. */
+@Composable
+private fun RefreshingBanner(report: VehicleReport) {
+    val p = LocalPalette.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(p.warnBg)
+            .border(1.dp, p.warn.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+            .padding(16.dp),
+    ) {
+        Text("דוח חלקי — המאגר הראשי מתעדכן", style = MaterialTheme.typography.titleMedium, color = p.warn)
+        Text(
+            "משרד התחבורה מחליף עכשיו את קובץ הרישוי הראשי ב-data.gov.il" +
+                (formatUtcDateTime(report.dataAsOf)?.let { " (מאז $it)" } ?: "") +
+                ", וזה לוקח כמה שעות. מה שכאן מגיע מהקבצים הנלווים: הדגם והמפרט שלו, ק״מ בטסט האחרון, " +
+                "גרירה וצמיגים, ריקולים ותג נכה. עד שהחלפה תסתיים חסרים תוקף הטסט, שנת הייצור, הצבע, הבעלות ומספר השלדה.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = p.ink,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
 }
 
 @Composable

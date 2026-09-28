@@ -10,6 +10,8 @@ sealed class RegistrationStatus {
     data class OffRoad(val date: String?) : RegistrationStatus()
     /** Registered but not licensed: never renewed, or between owners. */
     data object Inactive : RegistrationStatus()
+    /** The file that says is empty mid-reload; the car exists, its licensing state is not known right now. */
+    data object Unknown : RegistrationStatus()
 }
 
 data class Recall(
@@ -118,6 +120,13 @@ data class VehicleReport(
     /** Registry files that failed to answer this time; their sections say so instead of going missing. */
     val unavailable: List<String>,
     val dataAsOf: String?,
+    /**
+     * The main private-car file was empty (data.gov.il reloads it for hours after each
+     * nightly upload) and this report was built from the files that were up: the sibling
+     * half of the same row, the model specification, history, recalls. Licensing state,
+     * production year, colour, ownership and chassis are missing until the reload ends.
+     */
+    val mainRegistryRefreshing: Boolean = false,
 ) {
     /** "טויוטה קורולה", or whatever the registry can say. */
     val title: String

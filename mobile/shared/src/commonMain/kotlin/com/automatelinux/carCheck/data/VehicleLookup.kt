@@ -89,19 +89,23 @@ class VehicleLookup {
             ?: firstRecord(w.offRoad2010)?.let { it to VehicleKind.Car }
             ?: firstRecord(w.offRoad2000)?.let { it to VehicleKind.Car }
 
-        if (primary == null) {
-            // Nothing anywhere. Before saying "no such vehicle", make sure the main
-            // registry is not simply empty mid-reload (it is, for hours, after each upload).
-            return try {
-                val probe = GovIl.search(Res.PRIVATE, null, 1)
-                if (probe.total == 0L) LookupResult.RegistryRefreshing else LookupResult.NotFound
+        // The main registry is empty for hours after each nightly upload. A car that is in its
+        // sibling file (the same rows, the other half of the columns) still exists — the report
+        // is then built from that and every other file that answered, and says what it lacks.
+        var mainRefreshing = false
+        val (rec, kind) = primary ?: run {
+            val refreshing = try {
+                GovIl.search(Res.PRIVATE, null, 1).total == 0L
             } catch (e: GovIl.GovIlException) {
-                if (e.kind == FailureKind.Offline) LookupResult.Offline else LookupResult.Failed(e.message ?: "probe")
+                return if (e.kind == FailureKind.Offline) LookupResult.Offline else LookupResult.Failed(e.message ?: "probe")
             }
+            if (!refreshing) return LookupResult.NotFound
+            val sibling = firstRecord(w.extra) ?: return LookupResult.RegistryRefreshing
+            mainRefreshing = true
+            sibling to VehicleKind.Car
         }
-
-        val (rec, kind) = primary
         val status: RegistrationStatus = when {
+            mainRefreshing -> RegistrationStatus.Unknown
             firstRecord(w.main) != null || firstRecord(w.import) != null || firstRecord(w.motorcycle) != null ||
                 firstRecord(w.heavy) != null -> RegistrationStatus.Active(rec.text("tokef_dt"))
             firstRecord(w.public) != null ->
@@ -115,24 +119,30 @@ class VehicleLookup {
         val tozeretCd = rec.int("tozeret_cd")
         val degemCd = rec.int("degem_cd")
         val year = rec.int("shnat_yitzur")
+        val history = w.history?.records?.firstOrNull()
+        // Without the main file the production year is unknown; the first registration bounds it.
+        val registrationYear = history?.text("rishum_rishon_dt")?.take(4)?.toIntOrNull()
         var spec: JsonObject? = null
         var price: JsonObject? = null
         val recallIds = w.recallOpen?.records?.mapNotNull { it.int("RECALL_ID") } ?: emptyList()
         val notices = mutableMapOf<Int, JsonObject>()
         coroutineScope {
-            val specD = if (tozeretCd != null && degemCd != null && year != null) optional("מפרט הדגם", unavailable) {
-                rows(Res.MODEL_SPEC, mapOf("tozeret_cd" to tozeretCd, "degem_cd" to degemCd, "shnat_yitzur" to year), 3)
-            } else null
-            val priceD = if (tozeretCd != null && degemCd != null && year != null) optional("מחירון", unavailable) {
-                rows(Res.LIST_PRICE, mapOf("tozeret_cd" to tozeretCd, "degem_cd" to degemCd, "shnat_yitzur" to year), 3)
-            } else null
+            val byModel = if (tozeretCd != null && degemCd != null) mapOf<String, Any>("tozeret_cd" to tozeretCd, "degem_cd" to degemCd) else null
+            val filters = byModel?.let { m -> year?.let { m + ("shnat_yitzur" to it) } ?: m }
+            val limit = if (year != null) 3 else 40
+            val specD = if (filters != null) optional("מפרט הדגם", unavailable) { rows(Res.MODEL_SPEC, filters, limit) } else null
+            val priceD = if (filters != null) optional("מחירון", unavailable) { rows(Res.LIST_PRICE, filters, limit) } else null
             val noticeDs = recallIds.map { id -> id to optional("פרטי ריקול", unavailable) { rows(Res.RECALL_NOTICES, mapOf("RECALL_ID" to id), 1) } }
-            spec = specD?.await()?.records?.firstOrNull()
-            price = priceD?.await()?.records?.firstOrNull()
+            val specRows = specD?.await()?.records ?: emptyList()
+            val priceRows = priceD?.await()?.records ?: emptyList()
+            spec = if (year != null) specRows.firstOrNull() else {
+                val chosen = chooseYear(specRows.mapNotNull { it.int("shnat_yitzur") }, registrationYear)
+                specRows.firstOrNull { it.int("shnat_yitzur") == chosen }
+            }
+            price = if (year != null) priceRows.firstOrNull() else unambiguousPrice(priceRows, registrationYear)
             for ((id, d) in noticeDs) d.await()?.records?.firstOrNull()?.let { notices[id] = it }
         }
 
-        val history = w.history?.records?.firstOrNull()
         val extra = w.extra?.records?.firstOrNull()
         val recalls = (w.recallOpen?.records ?: emptyList()).mapNotNull { r ->
             val id = r.int("RECALL_ID") ?: return@mapNotNull null
@@ -229,8 +239,35 @@ class VehicleLookup {
 
             unavailable = unavailable.distinct(),
             dataAsOf = w.asOf,
+            mainRegistryRefreshing = mainRefreshing,
         )
         return LookupResult.Found(report)
+    }
+
+    companion object {
+        /**
+         * Which year's specification to read a car of unknown production year from: the latest
+         * that is not after its first registration (a car is registered in or after its model
+         * year), else the earliest on file.
+         */
+        internal fun chooseYear(years: List<Int>, registrationYear: Int?): Int? {
+            if (years.isEmpty()) return null
+            if (registrationYear == null) return years.max()
+            return years.filter { it <= registrationYear }.maxOrNull() ?: years.min()
+        }
+
+        /**
+         * A list price for a car of unknown production year, only when the years it could be
+         * (its registration year and the one before) all carry the same price.
+         */
+        internal fun unambiguousPrice(rows: List<JsonObject>, registrationYear: Int?): JsonObject? {
+            val candidates = if (registrationYear == null) rows else rows.filter {
+                val y = it.int("shnat_yitzur") ?: return@filter false
+                y in (registrationYear - 1)..registrationYear
+            }
+            val prices = candidates.mapNotNull { it.int("mehir") }.filter { it > 0 }.distinct()
+            return if (prices.size == 1) candidates.first { it.int("mehir") == prices[0] } else null
+        }
     }
 
     private fun firstRecord(rows: Rows?): JsonObject? = rows?.records?.firstOrNull()

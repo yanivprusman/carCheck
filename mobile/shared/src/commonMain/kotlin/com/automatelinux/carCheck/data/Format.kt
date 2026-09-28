@@ -2,7 +2,10 @@ package com.automatelinux.carCheck.data
 
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 
 /**
@@ -24,6 +27,23 @@ fun formatDate(raw: String?): String? {
         return "${s.substring(4)}/${s.substring(0, 4)}"
     }
     return s
+}
+
+/**
+ * CKAN's `last_modified` ("2026-09-28T02:46:44.138164") is UTC with no zone marker; shown
+ * as the local wall-clock time it happened at, "05:46, 28.09.2026".
+ */
+fun formatUtcDateTime(raw: String?): String? {
+    val s = raw?.trim() ?: return null
+    if (s.length < 19 || s[10] != 'T') return formatDate(s)
+    val local = try {
+        LocalDateTime.parse(s.substring(0, 19)).toInstant(TimeZone.UTC).toLocalDateTime(TimeZone.currentSystemDefault())
+    } catch (_: Exception) {
+        return formatDate(s)
+    }
+    val hh = local.hour.toString().padStart(2, '0')
+    val mm = local.minute.toString().padStart(2, '0')
+    return "$hh:$mm, ${formatDate(local.date.toString())}"
 }
 
 fun isoDateOrNull(raw: String?): LocalDate? {
