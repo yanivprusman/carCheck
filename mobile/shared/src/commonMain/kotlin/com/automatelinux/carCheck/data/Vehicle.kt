@@ -131,6 +131,8 @@ data class VehicleReport(
     val mirrorAsOf: String? = null,
     /** Why the copy could not be used, when it was tried and the sibling files answered instead. */
     val mirrorNote: String? = null,
+    /** The driving-licence grade it needs, worked out from the facts above; null when they do not decide it. */
+    val licence: RequiredLicence? = null,
 ) {
     /** "טויוטה קורולה", or whatever the registry can say. */
     val title: String

@@ -19,6 +19,7 @@ fun VehicleReport.shareText(): String {
         RegistrationStatus.Unknown -> sb.append("דוח חלקי — המאגר הראשי של משרד התחבורה מתעדכן כרגע\n")
     }
     mirrorAsOf?.let { sb.append("מהעותק השמור של הקובץ מ-").append(formatDate(it) ?: it).append(" (המאגר הראשי מתעדכן)\n") }
+    licence?.let { sb.append("רישיון נהיגה נדרש: ").append(it.grade).append(" (").append(it.because).append(")\n") }
     ownership?.let { sb.append("בעלות: ").append(it).append('\n') }
     if (ownershipHistory.isNotEmpty()) sb.append("ידיים: ").append(ownershipHistory.size).append('\n')
     kmAtLastTest?.let { sb.append("ק״מ בטסט האחרון: ").append(formatInt(it)).append('\n') }

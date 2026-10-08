@@ -220,6 +220,7 @@ private fun StatusRow(report: VehicleReport) {
     ) {
         Pill(statusText, tone, strong = true)
         report.ownership?.let { Pill("בעלות $it", Tone.Neutral) }
+        report.licence?.let { Pill("רישיון ${it.grade}", Tone.Neutral) }
         when (report.kind) {
             VehicleKind.Motorcycle -> Pill("דו-גלגלי", Tone.Neutral)
             VehicleKind.Heavy -> Pill("רכב כבד", Tone.Neutral)
@@ -449,6 +450,7 @@ private fun yesNo(b: Boolean?): String? = when (b) { true -> "כן"; false -> "�
 @Composable
 private fun Licensing(report: VehicleReport, host: HostActions) {
     Section("רישוי") {
+        Fact("רישיון נהיגה נדרש", report.licence?.let { "${it.grade} · ${it.because}" })
         Fact("טסט אחרון", formatDate(report.lastTest))
         Fact("תוקף הרישיון", formatDate((report.status as? RegistrationStatus.Active)?.validUntil))
         Fact("עלייה לכביש", formatDate(report.onRoad))

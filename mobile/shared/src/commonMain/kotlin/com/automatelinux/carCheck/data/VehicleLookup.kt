@@ -260,6 +260,15 @@ class VehicleLookup(private val mirror: RegistryMirror? = null) {
             importer = price?.text("shem_yevuan"),
 
             unavailable = unavailable.distinct(),
+            licence = requiredLicence(
+                kind = kind,
+                euCategory = rec.text("sug_rechev_EU_cd") ?: rec.text("tkina_EU"),
+                vehicleType = rec.text("sug_rechev_nm") ?: rec.text("kvutzat_sug_rechev"),
+                grossWeightKg = rec.int("mishkal_kolel")?.takeIf { it > 0 } ?: spec?.int("mishkal_kolel")?.takeIf { it > 0 },
+                seats = spec?.int("mispar_moshavim")?.takeIf { it > 0 } ?: rec.int("mispar_mekomot")?.takeIf { it > 0 },
+                // Exact, not rounded: a motorcycle's grade turns on 14.6 and 47.46 hp.
+                horsepower = spec?.double("koah_sus") ?: rec.double("hespek"),
+            ),
             dataAsOf = w.asOf,
             mainRegistryRefreshing = mainRefreshing,
             mirrorAsOf = mirrorAsOf,
