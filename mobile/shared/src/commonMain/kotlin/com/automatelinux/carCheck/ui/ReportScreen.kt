@@ -115,6 +115,7 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
         ) {
             Column(Modifier.fillMaxWidth().recordInto(reportLayer)) {
                 Headline(report)
+                CarPhotoStrip(report, host)
                 if (report.mainRegistryRefreshing) RefreshingBanner(report)
                 QuickStats(report)
                 for (r in report.recalls) RecallCard(r, host)

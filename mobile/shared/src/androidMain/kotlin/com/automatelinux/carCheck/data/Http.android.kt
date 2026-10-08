@@ -34,3 +34,23 @@ actual suspend fun httpGet(url: String): HttpResult = withContext(Dispatchers.IO
         conn?.disconnect()
     }
 }
+
+/** Same client, for photos; Wikimedia refuses requests without a descriptive User-Agent. */
+actual suspend fun httpGetBytes(url: String): BytesResult = withContext(Dispatchers.IO) {
+    var conn: HttpURLConnection? = null
+    try {
+        conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 10_000
+            readTimeout = 20_000
+            setRequestProperty("User-Agent", "carCheck/1 (Android; +https://ya-niv.com)")
+        }
+        val code = conn.responseCode
+        val bytes = if (code in 200..299) conn.inputStream.use { it.readBytes() } else ByteArray(0)
+        BytesResult(code, bytes)
+    } catch (e: IOException) {
+        BytesResult(0, ByteArray(0), e.message ?: "no connection")
+    } finally {
+        conn?.disconnect()
+    }
+}

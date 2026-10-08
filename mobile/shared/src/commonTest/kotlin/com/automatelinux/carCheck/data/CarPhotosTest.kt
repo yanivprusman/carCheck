@@ -1,0 +1,57 @@
+package com.automatelinux.carCheck.data
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+class CarPhotosTest {
+    private fun hit(he: String, en: String?) = CarPhotos.ArticleHit(he, en)
+
+    @Test
+    fun picksTheArticleAboutThisModelNotTheFirstHit() {
+        val hits = listOf(hit("טויוטה AE85", "Toyota AE85"), hit("טויוטה קורולה", "Toyota Corolla"))
+        assertEquals("Toyota Corolla", CarPhotos.pickArticle(hits, "טויוטה", "COROLLA")?.enTitle)
+    }
+
+    @Test
+    fun refusesAnotherMakesArticle() {
+        val hits = listOf(hit("מרצדס-בנץ סיטאן", "Mercedes-Benz Citan"))
+        assertNull(CarPhotos.pickArticle(hits, "רנו", "KANGOO"))
+    }
+
+    @Test
+    fun matchesThroughAccentsAndPunctuation() {
+        assertEquals("Škoda Octavia", CarPhotos.pickArticle(listOf(hit("סקודה אוקטביה", "Škoda Octavia")), "סקודה", "OCTAVIA")?.enTitle)
+        assertEquals("יונדאי i20", CarPhotos.pickArticle(listOf(hit("יונדאי i20", "Hyundai i20")), "יונדאי", "I-20")?.heTitle)
+    }
+
+    @Test
+    fun yearsFromFileNames() {
+        assertEquals(0, CarPhotos.yearDistance("File:2007-2010 Toyota Corolla (ZRE152R).jpg", 2008))
+        assertEquals(0, CarPhotos.yearDistance("File:2019–22 Toyota Corolla.jpg", 2021))
+        assertEquals(3, CarPhotos.yearDistance("File:2014 Toyota Corolla 1.8 LE.jpg", 2017))
+        assertEquals(1000, CarPhotos.yearDistance("File:Toyota Corolla E110 liftback.JPG", 2017))
+    }
+
+    @Test
+    fun ranksByYearAndDropsWhatIsNotTheModel() {
+        fun f(t: String, mime: String = "image/jpeg") = CarPhotos.FileInfo(t, mime, "thumb/$t", "page/$t")
+        val files = listOf(
+            f("File:1968 Toyota Corolla 1100 Deluxe.jpg"),
+            f("File:2013-2016 Toyota Corolla (ZRE172R) SX sedan.jpg"),
+            f("File:Toyota Corolla E110 liftback.JPG"),
+            f("File:Toyota logo Corolla.png", "image/png"),
+            f("File:Honda Civic 2015.jpg"),
+            f("File:Corolla badge.svg", "image/svg+xml"),
+        )
+        val ranked = CarPhotos.rankPhotos(files, "COROLLA", 2015).map { it.fileName }
+        assertEquals(
+            listOf(
+                "2013-2016 Toyota Corolla (ZRE172R) SX sedan.jpg",
+                "1968 Toyota Corolla 1100 Deluxe.jpg",
+                "Toyota Corolla E110 liftback.JPG",
+            ),
+            ranked,
+        )
+    }
+}

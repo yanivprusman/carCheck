@@ -5,6 +5,11 @@ data class HttpResult(val code: Int, val body: String, val error: String? = null
 
 expect suspend fun httpGet(url: String): HttpResult
 
+/** A binary GET (a photo). Code 0 = never reached anyone; [BytesResult.error] says why. */
+class BytesResult(val code: Int, val bytes: ByteArray, val error: String? = null)
+
+expect suspend fun httpGetBytes(url: String): BytesResult
+
 /** Percent-encodes one query-string value (RFC 3986 unreserved set kept as is). */
 fun encodeUrlComponent(value: String): String {
     val sb = StringBuilder()
