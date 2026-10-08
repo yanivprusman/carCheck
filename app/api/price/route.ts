@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * parameters as /api/photos — whose lookups (kept on disk) supply the model's Hebrew name:
  * the Hebrew Wikipedia title when there is an article, else the name Google's results agreed on.
  *
- *   {found: true, model, year, total, priced, median, low, high, url, fetchedAt}
+ *   {found: true, comparedTo, scope, total, priced, median, low, high, url, fetchedAt}
  *   {found: false, reason, tried}
  */
 export async function GET(req: NextRequest) {
@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
     }
     if (model) names.push(model);
 
-    const price = await marketPrice(make, names, year);
+    // A vehicle the phone calls a truck or a van over 3.5 t may only be listed in Yad2's truck section.
+    const truck = kind === "משאית" || kind === "רכב מסחרי";
+    const price = await marketPrice(make, names, year, truck);
     if (!price) return NextResponse.json({ found: false, reason: "no-listings", tried: names });
     return NextResponse.json({ found: true, ...price });
   } catch (e) {

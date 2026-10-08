@@ -25,8 +25,10 @@ type Ad = { price: number | null; hand: number | null; subModel: string | null }
 type Listings = { url: string; total: number; ads: Ad[] };
 
 export type MarketPrice = {
-  model: string;
-  year: number;
+  /** What the prices are of: "רנו קנגו 2017", or for a truck "משאיות איסוזו 2007–2009, כל הדגמים". */
+  comparedTo: string;
+  /** "model": ads of this exact model and year. "make": a truck — same make and years, any model. */
+  scope: "model" | "make";
   /** Ads for this model and year on Yad2 now; prices come from those with a real price. */
   total: number;
   priced: number;
@@ -85,14 +87,14 @@ const catalog = (manufacturerId?: number) =>
 
 /**
  * The asking-price summary for [make] and any of [modelNames] in [year], or null when Yad2 has no
- * such model or no priced ad for it. Throws when Yad2 cannot be read.
+ * such model or no priced ad for it. Throws when Yad2 cannot be read. A [truck] that the cars
+ * catalog does not know is looked up in the trucks section instead (see [truckPrice]).
  */
-export async function marketPrice(make: string, modelNames: string[], year: number): Promise<MarketPrice | null> {
+export async function marketPrice(make: string, modelNames: string[], year: number, truck: boolean): Promise<MarketPrice | null> {
   const makers = (await catalog()).manufacturer;
   const maker = findEntry(makers, [make]);
-  if (!maker) return null;
-  const model = findEntry((await catalog(maker.id)).model, modelNames);
-  if (!model) return null;
+  const model = maker ? findEntry((await catalog(maker.id)).model, modelNames) : null;
+  if (!maker || !model) return truck ? truckPrice(make, year) : null;
   const key = createHash("sha1").update(`${maker.id}:${model.id}:${year}`).digest("hex").slice(0, 20);
   const listings = await fresh<Listings & { fetchedAt: string }>(path.join(ROOT, `listings-${key}.json`), LISTINGS_TTL_MS, async () => ({
     ...(JSON.parse(await runChromeScript("yad2.mjs", ["listings", String(maker.id), String(model.id), String(year)])) as Listings),
@@ -100,5 +102,39 @@ export async function marketPrice(make: string, modelNames: string[], year: numb
   }));
   const stats = priceStats(listings.ads);
   if (!stats) return null;
-  return { model: `${maker.title} ${model.title}`, year, total: listings.total, ...stats, url: listings.url, fetchedAt: listings.fetchedAt };
+  return { comparedTo: `${maker.title} ${model.title} ${year}`, scope: "model", total: listings.total, ...stats, url: listings.url, fetchedAt: listings.fetchedAt };
+}
+
+/** Years either side of a truck's own: truck ads are few, and a truck's generation runs for years. */
+const TRUCK_YEARS = 1;
+
+const truckCatalog = () =>
+  fresh<{ manufacturer: CatalogEntry[] }>(path.join(ROOT, "truck-catalog.json"), CATALOG_TTL_MS, async () =>
+    JSON.parse(await runChromeScript("yad2.mjs", ["truck-catalog"])) as { manufacturer: CatalogEntry[] },
+  );
+
+/**
+ * Asking prices for trucks of [make] from [year] ± TRUCK_YEARS, any model. Yad2's truck section
+ * has no models to match — sellers type them freely or not at all — so this is the closest
+ * honest comparison, and it is labelled as covering every model of the make.
+ */
+async function truckPrice(make: string, year: number): Promise<MarketPrice | null> {
+  const maker = findEntry((await truckCatalog()).manufacturer, [make]);
+  if (!maker) return null;
+  const [from, to] = [year - TRUCK_YEARS, year + TRUCK_YEARS];
+  const key = createHash("sha1").update(`truck:${maker.id}:${from}:${to}`).digest("hex").slice(0, 20);
+  const listings = await fresh<Listings & { fetchedAt: string }>(path.join(ROOT, `listings-${key}.json`), LISTINGS_TTL_MS, async () => ({
+    ...(JSON.parse(await runChromeScript("yad2.mjs", ["truck-listings", String(maker.id), String(from), String(to)])) as Listings),
+    fetchedAt: new Date().toISOString(),
+  }));
+  const stats = priceStats(listings.ads);
+  if (!stats) return null;
+  return {
+    comparedTo: `משאיות ${maker.title} ${from}–${to}, כל הדגמים`,
+    scope: "make",
+    total: listings.ads.length,
+    ...stats,
+    url: listings.url,
+    fetchedAt: listings.fetchedAt,
+  };
 }

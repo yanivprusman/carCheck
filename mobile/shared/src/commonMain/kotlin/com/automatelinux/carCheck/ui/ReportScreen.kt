@@ -627,6 +627,7 @@ private fun Money(report: VehicleReport, prices: MarketPrices, host: HostActions
             is MarketPriceResult.Failed -> Fact("מחיר מבוקש ביד 2", "לא זמין (${m.detail})")
             is MarketPriceResult.Found -> {
                 Fact("מחיר מבוקש ביד 2", "₪${formatInt(m.median)} (חציון)")
+                Fact("השוואה ל", m.comparedTo)
                 Fact("רוב המודעות", "₪${formatInt(m.low)}–₪${formatInt(m.high)}")
                 Fact("מודעות", if (m.priced == m.total) "${m.total}" else "${m.total} · ${m.priced} עם מחיר")
                 Row(Modifier.padding(vertical = 8.dp)) {

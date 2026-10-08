@@ -5,9 +5,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 sealed class MarketPriceResult {
-    /** Asking prices for the model and year on Yad2: the median and the middle half's range, over [priced] ads of [total]. */
+    /**
+     * Asking prices on Yad2: the median and the middle half's range, over [priced] ads of [total].
+     * [comparedTo] says of what — "רנו קנגו 2017", or for a truck "משאיות איסוזו 2007–2009, כל הדגמים".
+     */
     data class Found(
-        val model: String,
+        val comparedTo: String,
         val total: Int,
         val priced: Int,
         val median: Int,
@@ -47,7 +50,7 @@ class MarketPrices(baseUrl: String) {
         if (obj["found"]?.jsonPrimitive?.content != "true") return MarketPriceResult.None
         fun int(k: String) = obj[k]?.jsonPrimitive?.content?.toDoubleOrNull()?.toInt()
         return MarketPriceResult.Found(
-            model = obj["model"]?.jsonPrimitive?.content ?: "",
+            comparedTo = obj["comparedTo"]?.jsonPrimitive?.content ?: return MarketPriceResult.Failed("no comparedTo"),
             total = int("total") ?: 0,
             priced = int("priced") ?: 0,
             median = int("median") ?: return MarketPriceResult.Failed("no median"),
