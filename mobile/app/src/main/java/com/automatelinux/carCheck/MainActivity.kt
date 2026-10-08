@@ -108,7 +108,15 @@ class MainActivity : ComponentActivity(), HostActions {
         }
     }
 
-    override fun shareImage(image: ImageBitmap, name: String, caption: String) {
+    override fun share(text: String) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        open(Intent.createChooser(send, null))
+    }
+
+    override fun shareImage(image: ImageBitmap, name: String) {
         lifecycleScope.launch {
             // One file per plate, overwritten on the next share: the cache never grows past a picture a car.
             val file = withContext(Dispatchers.IO) {
@@ -120,7 +128,6 @@ class MainActivity : ComponentActivity(), HostActions {
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "image/png"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_TEXT, caption)
                 // The chooser previews the picture and hands the grant on only when it rides in ClipData.
                 clipData = ClipData.newRawUri(null, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

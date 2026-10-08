@@ -25,15 +25,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,7 +85,7 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
     val pictureLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val share: () -> Unit = {
+    val shareImage: () -> Unit = {
         scope.launch {
             val image = stackShareImage(
                 into = pictureLayer,
@@ -87,11 +95,17 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
                 density = density,
                 paddingPx = with(density) { 16.dp.toPx() },
             )
-            host.shareImage(image, report.plate.digits, report.shareText())
+            host.shareImage(image, report.plate.digits)
         }
     }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        TopBar(report, plateLayer, onBack = onBack, onShare = share)
+        TopBar(
+            report,
+            plateLayer,
+            onBack = onBack,
+            onShareImage = shareImage,
+            onShareText = { host.share(report.shareText()) },
+        )
         Column(
             Modifier
                 .fillMaxSize()
@@ -119,7 +133,13 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TopBar(report: VehicleReport, plateLayer: GraphicsLayer, onBack: () -> Unit, onShare: () -> Unit) {
+private fun TopBar(
+    report: VehicleReport,
+    plateLayer: GraphicsLayer,
+    onBack: () -> Unit,
+    onShareImage: () -> Unit,
+    onShareText: () -> Unit,
+) {
     val p = LocalPalette.current
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
@@ -131,8 +151,26 @@ private fun TopBar(report: VehicleReport, plateLayer: GraphicsLayer, onBack: () 
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Box(Modifier.recordInto(plateLayer)) { PlateView(report.plate.display, height = 40.dp) }
         }
-        IconButton(onClick = onShare, modifier = Modifier.testTag("share-report")) {
-            Icon(Icons.Filled.Share, contentDescription = "שיתוף", tint = p.ink)
+        // Picture or text is the user's call each time: a picture is the report as seen, text is what pastes.
+        Box {
+            var choosing by remember { mutableStateOf(false) }
+            IconButton(onClick = { choosing = true }, modifier = Modifier.testTag("share-report")) {
+                Icon(Icons.Filled.Share, contentDescription = "שיתוף", tint = p.ink)
+            }
+            DropdownMenu(expanded = choosing, onDismissRequest = { choosing = false }) {
+                DropdownMenuItem(
+                    text = { Text("שתף כתמונה") },
+                    leadingIcon = { Icon(Icons.Filled.Image, contentDescription = null) },
+                    onClick = { choosing = false; onShareImage() },
+                    modifier = Modifier.testTag("share-as-image"),
+                )
+                DropdownMenuItem(
+                    text = { Text("שתף כטקסט") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null) },
+                    onClick = { choosing = false; onShareText() },
+                    modifier = Modifier.testTag("share-as-text"),
+                )
+            }
         }
     }
 }
