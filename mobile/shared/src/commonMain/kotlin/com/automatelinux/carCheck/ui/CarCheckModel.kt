@@ -3,6 +3,7 @@ package com.automatelinux.carCheck.ui
 import androidx.compose.ui.graphics.ImageBitmap
 import com.automatelinux.carCheck.data.CarPhotos
 import com.automatelinux.carCheck.data.LookupResult
+import com.automatelinux.carCheck.data.MarketPrices
 import com.automatelinux.carCheck.data.OcrLine
 import com.automatelinux.carCheck.data.Plate
 import com.automatelinux.carCheck.data.PlateCandidate
@@ -45,6 +46,8 @@ class CarCheckModel(
     private val lookup: VehicleLookup = VehicleLookup(),
     /** Photos of the model; the backend searches each model once and keeps them. */
     val photos: CarPhotos,
+    /** Asking prices on Yad2 for the model and year, read by the backend. */
+    val prices: MarketPrices,
 ) {
     sealed class Notice {
         data object TooShort : Notice()

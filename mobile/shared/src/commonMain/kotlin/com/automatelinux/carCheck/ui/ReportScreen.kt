@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +58,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.automatelinux.carCheck.data.CarPhotos
+import com.automatelinux.carCheck.data.MarketPriceResult
+import com.automatelinux.carCheck.data.MarketPrices
 import com.automatelinux.carCheck.data.Recall
 import com.automatelinux.carCheck.data.RegistrationStatus
 import com.automatelinux.carCheck.data.VehicleKind
@@ -80,7 +83,7 @@ import kotlinx.datetime.plus
 private enum class Tone { Good, Warn, Bad, Neutral }
 
 @Composable
-fun ReportScreen(report: VehicleReport, photos: CarPhotos, host: HostActions, onBack: () -> Unit) {
+fun ReportScreen(report: VehicleReport, photos: CarPhotos, prices: MarketPrices, host: HostActions, onBack: () -> Unit) {
     val p = LocalPalette.current
     // The shared picture is the whole report under its plate — every card the screen shows, not a digest.
     val plateLayer = rememberGraphicsLayer()
@@ -129,7 +132,7 @@ fun ReportScreen(report: VehicleReport, photos: CarPhotos, host: HostActions, on
                 Body(report)
                 Safety(report)
                 Emissions(report)
-                Money(report)
+                Money(report, prices, host)
                 Footer(report)
             }
             Spacer(Modifier.height(24.dp))
@@ -613,12 +616,29 @@ private fun Emissions(report: VehicleReport) {
 }
 
 @Composable
-private fun Money(report: VehicleReport) {
-    if (report.listPriceNis == null) return
+private fun Money(report: VehicleReport, prices: MarketPrices, host: HostActions) {
+    val market by produceState<MarketPriceResult?>(null, report.plate) { value = prices.find(report) }
+    if (report.listPriceNis == null && market == MarketPriceResult.None) return
     Section("מחיר") {
-        Fact("מחירון בחדש", "₪${formatInt(report.listPriceNis)}")
-        Fact("יבואן", report.importer)
-        Fact("שנת המחירון", report.year?.toString())
+        when (val m = market) {
+            // Asking prices on Yad2 now: what this model and year is offered for, not what it sells for.
+            null -> Fact("מחיר מבוקש ביד 2", "בודק…")
+            MarketPriceResult.None -> Unit
+            is MarketPriceResult.Failed -> Fact("מחיר מבוקש ביד 2", "לא זמין (${m.detail})")
+            is MarketPriceResult.Found -> {
+                Fact("מחיר מבוקש ביד 2", "₪${formatInt(m.median)} (חציון)")
+                Fact("רוב המודעות", "₪${formatInt(m.low)}–₪${formatInt(m.high)}")
+                Fact("מודעות", if (m.priced == m.total) "${m.total}" else "${m.total} · ${m.priced} עם מחיר")
+                Row(Modifier.padding(vertical = 8.dp)) {
+                    ActionChip("למודעות ביד 2", Icons.Filled.OpenInNew) { host.openUrl(m.url) }
+                }
+            }
+        }
+        report.listPriceNis?.let {
+            Fact("מחירון בחדש", "₪${formatInt(it)}")
+            Fact("יבואן", report.importer)
+            Fact("שנת המחירון", report.year?.toString())
+        }
     }
 }
 

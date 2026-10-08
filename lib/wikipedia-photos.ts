@@ -133,7 +133,7 @@ async function fetchPhotos(key: string, query: string, make: string, name: strin
         photos.push({ file, alt: f.title.replace(/^File:/, ""), width: f.width, height: f.height, type: f.mime, link: f.pageUrl });
       }
     }
-    const index: PhotoIndex = { source: "wikipedia", query, fetchedAt: new Date().toISOString(), articleUrl, photos };
+    const index: PhotoIndex = { source: "wikipedia", query, fetchedAt: new Date().toISOString(), articleUrl, heTitle: hit?.heTitle, photos };
     await fs.writeFile(path.join(stage.dir, "index.json"), JSON.stringify(index, null, 2));
     await stage.commit();
     return index;

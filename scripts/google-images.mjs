@@ -17,14 +17,11 @@
  * It runs once per model and year: the server keeps what it saves and never searches the
  * same query again.
  */
-import { spawn } from "node:child_process";
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
-import puppeteer from "puppeteer-core";
+import { withChrome } from "./chrome.mjs";
 
 const MAX_PHOTOS = 20;
-const PROFILE = "/var/lib/carcheck/chrome-profile";
 
 const [query, outDir] = process.argv.slice(2);
 if (!query || !outDir) {
@@ -32,49 +29,7 @@ if (!query || !outDir) {
   process.exit(64);
 }
 
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const s = net.createServer();
-    s.listen(0, "127.0.0.1", () => {
-      const { port } = s.address();
-      s.close(() => resolve(port));
-    });
-    s.on("error", reject);
-  });
-}
-
-async function connect(port) {
-  const deadline = Date.now() + 15_000;
-  for (;;) {
-    try {
-      return await puppeteer.connect({ browserURL: `http://127.0.0.1:${port}`, defaultViewport: null });
-    } catch (e) {
-      if (Date.now() > deadline) throw new Error(`Chrome did not open DevTools on ${port}: ${e.message}`);
-      await new Promise((r) => setTimeout(r, 300));
-    }
-  }
-}
-
-fs.mkdirSync(PROFILE, { recursive: true });
-const port = await freePort();
-const chrome = spawn(
-  "/usr/bin/google-chrome",
-  [
-    "--no-sandbox", // runs as root
-    `--user-data-dir=${PROFILE}`,
-    `--remote-debugging-port=${port}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--window-size=1366,1800",
-    "about:blank",
-  ],
-  { stdio: "ignore" },
-);
-
-let browser;
-try {
-  browser = await connect(port);
-  const [page] = await browser.pages();
+await withChrome(async (page) => {
   await page.goto(`https://www.google.com/search?udm=2&hl=iw&q=${encodeURIComponent(query)}`, {
     waitUntil: "networkidle2",
     timeout: 30_000,
@@ -117,7 +72,4 @@ try {
     fs.writeFileSync(path.join(outDir, "index.json"), JSON.stringify(index, null, 2));
     process.stdout.write(JSON.stringify(index));
   }
-} finally {
-  if (browser) await browser.disconnect();
-  chrome.kill();
-}
+});

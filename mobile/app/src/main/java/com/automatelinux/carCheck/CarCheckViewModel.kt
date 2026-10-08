@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.automatelinux.carCheck.data.CarPhotos
+import com.automatelinux.carCheck.data.MarketPrices
 import com.automatelinux.carCheck.data.RecentStore
 import com.automatelinux.carCheck.data.RegistryMirror
 import com.automatelinux.carCheck.data.VehicleLookup
@@ -21,5 +22,7 @@ class CarCheckViewModel(app: Application) : AndroidViewModel(app) {
         lookup = VehicleLookup(mirror = RegistryMirror(BuildConfig.API_BASE_URL)),
         // and searches Google Images once per model, keeping the photos for every later plate.
         photos = CarPhotos(BuildConfig.API_BASE_URL),
+        // and reads Yad2's asking prices for the model and year, kept for a week.
+        prices = MarketPrices(BuildConfig.API_BASE_URL),
     )
 }

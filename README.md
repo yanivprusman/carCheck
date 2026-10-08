@@ -41,6 +41,18 @@ model and year is answered from disk (`lib/photo-store.ts`):
   gets the vehicle kind added ("פיאט 250 2023 רכב מסחרי"). Searching the plate number itself
   finds nothing about the car.
 
+## Asking prices
+
+The registry has no used-car price, and the used-car price list (Levi Yitzhak) is commercial. The
+report shows what the model and year is **offered for** on Yad2 now: the median asking price, the
+middle half's range and the number of ads (`GET /api/price`, `lib/market-price.ts`,
+`scripts/yad2.mjs`). Yad2's catalog names models in Hebrew, so the model is found by the Hebrew
+name the photo lookup already established (the Hebrew Wikipedia title, or the name Google's
+results agreed on) and matched exactly. Results are kept a week, the catalog a month, under
+`/var/lib/carcheck/market/`. Trucks are a separate Yad2 section that is not searched yet.
+
+Both Chrome scripts share `scripts/chrome.mjs` and run one at a time (`lib/chrome-job.ts`).
+
 `npm test` covers the selection rules.
 
 ## Layout

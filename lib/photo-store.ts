@@ -25,6 +25,8 @@ export type PhotoIndex = {
   fetchedAt: string;
   /** The Wikipedia article the photos came from, when they did. */
   articleUrl?: string;
+  /** That article's Hebrew title ("רנו קנגו") — the model's Hebrew name, which the market price needs. */
+  heTitle?: string;
   photos: StoredPhoto[];
 };
 

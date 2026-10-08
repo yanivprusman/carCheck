@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { BlockedError, runChromeScript } from "./chrome-job";
 import { cached, photoKey, stagingDir, type PhotoIndex } from "./photo-store";
 
 /**
@@ -80,71 +80,52 @@ export function selectPhotos<T extends { alt: string }>(query: string, code: str
     const named = dated.filter((p) => alnum(p.alt).includes(key));
     if (named.length >= 2) return named.slice(0, max);
   }
+  const top = agreedWord(query, dated);
+  const agreed = top ? dated.filter((p) => tokens(p.alt).includes(top)) : dated;
+  return agreed.slice(0, max);
+}
+
+/**
+ * The word more than half of [photos]' page texts share that [query] does not already say —
+ * the model name Google resolved a code to ("דוקאטו" for "פיאט 250 2023 רכב מסחרי"), or null.
+ */
+export function agreedWord<T extends { alt: string }>(query: string, photos: T[]): string | null {
   const asked = new Set(tokens(query));
   const counts = new Map<string, number>();
-  for (const p of dated) {
+  for (const p of photos) {
     for (const t of new Set(tokens(p.alt))) {
       if (asked.has(t) || STOP.has(t) || t.length < 3 || /^\d+$/.test(t)) continue;
       counts.set(t, (counts.get(t) ?? 0) + 1);
     }
   }
   const [top, n] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
-  const agreed = n * 2 > dated.length ? dated.filter((p) => tokens(p.alt).includes(top)) : dated;
-  return agreed.slice(0, max);
+  return n * 2 > photos.length ? top : null;
 }
 
 export function googleImagesUrl(query: string): string {
   return `https://www.google.com/search?udm=2&q=${encodeURIComponent(query)}`;
 }
 
-/** One Chrome at a time: searches queue rather than open several browsers at once. */
-let queue: Promise<unknown> = Promise.resolve();
-
 /** Everything the search found (up to 20), stored; selection happens when it is served. */
 export function googlePhotos(query: string) {
   const key = photoKey("google", query);
-  return cached(key, () => {
-    const run = queue.catch(() => undefined).then(() => search(key, query));
-    queue = run;
-    return run;
-  });
+  return cached(key, () => search(key, query));
 }
 
-/**
- * Runs scripts/google-images.mjs in a transient systemd scope under xvfb-run: Chrome cannot start
- * its thread pool inside the app service's task limit, and needs a display a server does not have.
- */
+/** Runs scripts/google-images.mjs into a staging folder, then moves it into place. */
 async function search(key: string, query: string): Promise<PhotoIndex> {
   const stage = await stagingDir(key);
-  const script = path.join(process.cwd(), "scripts", "google-images.mjs");
-  const { code, stdout, stderr } = await run("systemd-run", [
-    "--scope", "--quiet", "--collect", "--property=TasksMax=4096", "--property=MemoryMax=2G",
-    "xvfb-run", "-a", "-s", "-screen 0 1366x1800x24",
-    process.execPath, script, query, stage.dir,
-  ]);
-  if (code !== 0) {
+  let stdout: string;
+  try {
+    stdout = await runChromeScript("google-images.mjs", [query, stage.dir]);
+  } catch (e) {
     await stage.discard();
-    if (code === 2) throw new GoogleCaptchaError("Google asked to verify this computer is not a robot");
-    throw new Error(`google-images exited ${code}: ${stderr.trim().slice(-300)}`);
+    if (e instanceof BlockedError) throw new GoogleCaptchaError("Google asked to verify this computer is not a robot");
+    throw e;
   }
   const found = JSON.parse(stdout) as Omit<PhotoIndex, "source">;
   const index: PhotoIndex = { source: "google", ...found };
   await fs.writeFile(path.join(stage.dir, "index.json"), JSON.stringify(index, null, 2));
   await stage.commit();
   return index;
-}
-
-function run(cmd: string, args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "", stderr = "";
-    child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
-    const timer = setTimeout(() => child.kill("SIGKILL"), 90_000);
-    child.on("error", reject);
-    child.on("close", (c) => {
-      clearTimeout(timer);
-      resolve({ code: c, stdout, stderr });
-    });
-  });
 }

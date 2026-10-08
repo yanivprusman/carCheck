@@ -31,15 +31,7 @@ class CarPhotos(baseUrl: String) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     suspend fun find(report: VehicleReport): CarPhotosResult {
-        val make = report.make ?: return CarPhotosResult.None
-        if (report.commercialName == null && report.model == null) return CarPhotosResult.None
-        val params = listOfNotNull(
-            "make" to make,
-            report.model?.let { "model" to it },
-            report.commercialName?.let { "name" to it },
-            report.year?.let { "year" to it.toString() },
-            kindWord(report)?.let { "kind" to it },
-        ).joinToString("&") { (k, v) -> k + "=" + encodeUrlComponent(v) }
+        val params = backendParams(report) ?: return CarPhotosResult.None
         val r = httpGet("$base/api/photos?$params")
         if (r.code == 0) return CarPhotosResult.Failed(r.error ?: "no connection")
         val obj = try {
@@ -66,6 +58,19 @@ class CarPhotos(baseUrl: String) {
     }
 
     companion object {
+        /** The model as the backend's /api/photos and /api/price take it; null when the registry names no make or model. */
+        fun backendParams(report: VehicleReport): String? {
+            val make = report.make ?: return null
+            if (report.commercialName == null && report.model == null) return null
+            return listOfNotNull(
+                "make" to make,
+                report.model?.let { "model" to it },
+                report.commercialName?.let { "name" to it },
+                report.year?.let { "year" to it.toString() },
+                kindWord(report)?.let { "kind" to it },
+            ).joinToString("&") { (k, v) -> k + "=" + encodeUrlComponent(v) }
+        }
+
         /**
          * What kind of vehicle it is, for the backend's Google query: vehicles over 3.5 t are named
          * only by a type code, and "פיאט 250 2023" alone is Fiat 500s and F-250s, while
