@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -19,15 +20,21 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.automatelinux.carCheck.ui.HostActions
 import com.automatelinux.carCheck.ui.ImageSource
 import com.automatelinux.carCheck.ui.feedback.FeedbackHost
 import com.automatelinux.carCheck.util.ScreenTracker
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Thin Android launcher: the UI is the shared App(); this file only answers the platform's questions. */
 @AndroidEntryPoint
@@ -100,12 +107,25 @@ class MainActivity : ComponentActivity(), HostActions {
         }
     }
 
-    override fun share(text: String) {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
+    override fun shareImage(image: ImageBitmap, name: String, caption: String) {
+        lifecycleScope.launch {
+            // One file per plate, overwritten on the next share: the cache never grows past a picture a car.
+            val file = withContext(Dispatchers.IO) {
+                File(File(cacheDir, "share").apply { mkdirs() }, "carCheck-$name.png").also { f ->
+                    f.outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+                }
+            }
+            val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", file)
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, caption)
+                // The chooser previews the picture and hands the grant on only when it rides in ClipData.
+                clipData = ClipData.newRawUri(null, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            open(Intent.createChooser(send, null))
         }
-        open(Intent.createChooser(send, null))
     }
 
     override fun openUrl(url: String) = open(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

@@ -2,4 +2,6 @@
 <paths>
     <!-- Where the camera app writes the plate photo. -->
     <cache-path name="camera" path="camera/" />
+    <!-- The report picture handed to the share sheet. -->
+    <cache-path name="share" path="share/" />
 </paths>

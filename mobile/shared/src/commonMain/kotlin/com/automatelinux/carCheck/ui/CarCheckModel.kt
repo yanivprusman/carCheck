@@ -1,5 +1,6 @@
 package com.automatelinux.carCheck.ui
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.automatelinux.carCheck.data.LookupResult
 import com.automatelinux.carCheck.data.OcrLine
 import com.automatelinux.carCheck.data.Plate
@@ -24,7 +25,8 @@ enum class ImageSource { Camera, Gallery }
 
 /** Things only the host platform can do; commonMain asks, Android answers with an Intent. */
 interface HostActions {
-    fun share(text: String)
+    /** Send [image] (named after [name]) through the share sheet, with [caption] for apps that take one. */
+    fun shareImage(image: ImageBitmap, name: String, caption: String)
     fun openUrl(url: String)
     fun dial(phone: String)
     fun copy(label: String, text: String)

@@ -34,10 +34,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,6 +63,7 @@ import com.automatelinux.carCheck.ui.components.PlateView
 import com.automatelinux.carCheck.ui.theme.LocalPalette
 import com.automatelinux.carCheck.ui.theme.Palette
 import kotlinx.datetime.DatePeriod
+import kotlinx.coroutines.launch
 import kotlinx.datetime.plus
 
 private enum class Tone { Good, Warn, Bad, Neutral }
@@ -65,8 +71,27 @@ private enum class Tone { Good, Warn, Bad, Neutral }
 @Composable
 fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
     val p = LocalPalette.current
+    // The shared picture is the plate, the top of the report down to its history, and the source line —
+    // the facts a buyer asks about, short enough that a chat app does not shrink it past reading.
+    val plateLayer = rememberGraphicsLayer()
+    val summaryLayer = rememberGraphicsLayer()
+    val footerLayer = rememberGraphicsLayer()
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val share: () -> Unit = {
+        scope.launch {
+            val image = stackShareImage(
+                plate = plateLayer,
+                parts = listOf(summaryLayer, footerLayer),
+                background = p.page,
+                density = density,
+                paddingPx = with(density) { 16.dp.toPx() },
+            )
+            host.shareImage(image, report.plate.digits, report.shareText())
+        }
+    }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        TopBar(report, onBack = onBack, onShare = { host.share(report.shareText()) })
+        TopBar(report, plateLayer, onBack = onBack, onShare = share)
         Column(
             Modifier
                 .fillMaxSize()
@@ -74,25 +99,27 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp)
                 .navigationBarsPadding(),
         ) {
-            Headline(report)
-            if (report.mainRegistryRefreshing) RefreshingBanner(report)
-            QuickStats(report)
-            for (r in report.recalls) RecallCard(r, host)
-            Licensing(report, host)
-            History(report)
+            Column(Modifier.fillMaxWidth().recordInto(summaryLayer)) {
+                Headline(report)
+                if (report.mainRegistryRefreshing) RefreshingBanner(report)
+                QuickStats(report)
+                for (r in report.recalls) RecallCard(r, host)
+                Licensing(report, host)
+                History(report)
+            }
             Engine(report)
             Body(report)
             Safety(report)
             Emissions(report)
             Money(report)
-            Footer(report)
+            Box(Modifier.fillMaxWidth().recordInto(footerLayer)) { Footer(report) }
             Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun TopBar(report: VehicleReport, onBack: () -> Unit, onShare: () -> Unit) {
+private fun TopBar(report: VehicleReport, plateLayer: GraphicsLayer, onBack: () -> Unit, onShare: () -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
@@ -102,9 +129,9 @@ private fun TopBar(report: VehicleReport, onBack: () -> Unit, onShare: () -> Uni
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "חזרה", tint = p.ink)
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            PlateView(report.plate.display, height = 40.dp)
+            Box(Modifier.recordInto(plateLayer)) { PlateView(report.plate.display, height = 40.dp) }
         }
-        IconButton(onClick = onShare) {
+        IconButton(onClick = onShare, modifier = Modifier.testTag("share-report")) {
             Icon(Icons.Filled.Share, contentDescription = "שיתוף", tint = p.ink)
         }
     }
