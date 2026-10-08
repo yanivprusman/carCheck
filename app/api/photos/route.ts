@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleCaptchaError, photosFor } from "@/lib/car-photos";
+import { GoogleCaptchaError, photosFor, selectPhotos } from "@/lib/car-photos";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Photos of a model for the report: `?q=<make> <model> <year>[ <vehicle type>]`.
  * The first ask searches Google Images (several seconds); every later one is read from disk.
+ * Only photos whose page names the car's year, and the model most of them agree on, are returned.
  */
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
@@ -18,7 +19,8 @@ export async function GET(req: NextRequest) {
       query: index.query,
       fetchedAt: index.fetchedAt,
       cached,
-      photos: index.photos.map((p) => ({ url: `/api/photos/${key}/${p.file}`, alt: p.alt, width: p.width, height: p.height })),
+      // Everything the search found is kept on disk; only what passes selectPhotos is shown.
+      photos: selectPhotos(index.query, index.photos).map((p) => ({ url: `/api/photos/${key}/${p.file}`, alt: p.alt, width: p.width, height: p.height })),
     });
   } catch (e) {
     if (e instanceof GoogleCaptchaError) {

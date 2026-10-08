@@ -23,7 +23,7 @@ import net from "node:net";
 import path from "node:path";
 import puppeteer from "puppeteer-core";
 
-const MAX_PHOTOS = 8;
+const MAX_PHOTOS = 20;
 const PROFILE = "/var/lib/carcheck/chrome-profile";
 
 const [query, outDir] = process.argv.slice(2);
