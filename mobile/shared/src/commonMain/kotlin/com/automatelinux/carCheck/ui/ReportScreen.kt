@@ -68,6 +68,7 @@ import com.automatelinux.carCheck.data.formatInt
 import com.automatelinux.carCheck.data.formatUtcDateTime
 import com.automatelinux.carCheck.data.isoDateOrNull
 import com.automatelinux.carCheck.data.today
+import com.automatelinux.carCheck.data.describe
 import com.automatelinux.carCheck.data.towingLimit
 import com.automatelinux.carCheck.ui.components.PlateView
 import com.automatelinux.carCheck.ui.theme.LocalPalette
@@ -318,7 +319,7 @@ private fun QuickStats(report: VehicleReport) {
         report.horsepower?.let { add("כוח סוס" to it.toString()) }
         if (size < 3) report.listPriceNis?.let { add("מחירון בחדש, ₪" to formatInt(it)) }
         if (size < 3) report.displacementCc?.let { add("נפח מנוע, סמ״ק" to formatInt(it)) }
-        if (size < 3) report.towBrakedKg?.let { add("גרירה, ק״ג" to formatInt(it)) }
+        if (size < 3) report.towBrakedKg?.takeIf { it > 0 }?.let { add("גרירה, ק״ג" to formatInt(it)) }
         if (size < 3) report.grossWeightKg?.let { add("משקל כולל, ק״ג" to formatInt(it)) }
     }.take(3)
     // A lone tile stretched across the screen reads as a mistake; two or three read as a dashboard.
@@ -535,12 +536,17 @@ private fun Towing(report: VehicleReport) {
     val limit = towingLimit(report.licence, report.towBrakedKg)
     if (limit == null && report.towHitch == null && report.towUnbrakedKg == null) return
     Section("גרירה") {
-        Fact("מותר לגרור", limit?.let { "עד ${formatInt(it.kg)} ק״ג · לפי ${it.setBy}" })
-        Fact("וו גרירה", when (report.towHitch) { true -> "מותקן"; false -> "לא רשום וו גרירה"; null -> null })
-        Fact("כושר גרירה עם בלמים", report.towBrakedKg?.let { "${formatInt(it)} ק״ג" })
-        Fact("כושר גרירה בלי בלמים", report.towUnbrakedKg?.let { "${formatInt(it)} ק״ג" })
-        report.licence?.trailerLimitKg?.let { kg ->
-            Fact("ברישיון ${report.licence.grade}", "נגרר עד ${formatInt(kg)} ק״ג" + if (report.licence.grade != "B") " · מעל לכך C+E" else "")
+        Fact("מותר לגרור", limit?.describe())
+        Fact("וו גרירה", when (report.towHitch) { true -> "מותקן"; false -> "אין וו גרירה רשום"; null -> null })
+        if ((report.towBrakedKg ?: 0) > 0) {
+            Fact("כושר גרירה של הדגם", listOfNotNull(
+                report.towBrakedKg?.let { "${formatInt(it)} ק״ג עם בלמים" },
+                report.towUnbrakedKg?.let { "${formatInt(it)} בלי" },
+            ).joinToString(" · "))
+        }
+        // A C-class driver towing more than the licence's 3,500 kg needs the C+E grade.
+        if ((report.towBrakedKg ?: 1) > 0 && report.licence?.grade in setOf("C1", "C")) {
+            Fact("נגרר מעל 3,500 ק״ג", "דורש רישיון C+E")
         }
     }
 }

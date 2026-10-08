@@ -222,8 +222,10 @@ class VehicleLookup(private val mirror: RegistryMirror? = null) {
             driveTechnology = spec?.text("technologiat_hanaa_nm"),
             grossWeightKg = rec.int("mishkal_kolel")?.takeIf { it > 0 } ?: spec?.int("mishkal_kolel")?.takeIf { it > 0 },
             curbWeightKg = rec.int("mishkal_azmi")?.takeIf { it > 0 },
-            towBrakedKg = spec?.int("kosher_grira_im_blamim")?.takeIf { it > 0 },
-            towUnbrakedKg = spec?.int("kosher_grira_bli_blamim")?.takeIf { it > 0 },
+            // 0 is a fact, not a gap: the model is registered with no towing approval (its licence
+            // then reads "אסור להתקין וו גרירה"). Null only when there is no model row at all.
+            towBrakedKg = spec?.int("kosher_grira_im_blamim"),
+            towUnbrakedKg = spec?.int("kosher_grira_bli_blamim"),
             towHitch = (extra?.text("grira_nm") ?: rec.text("grira_nm"))?.let { !it.contains("אין") },
 
             doors = spec?.int("mispar_dlatot")?.takeIf { it > 0 },

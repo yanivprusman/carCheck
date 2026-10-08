@@ -67,17 +67,30 @@ fun requiredLicence(
 private const val B_TRAILER_KG = 1_500
 private const val C_TRAILER_KG = 3_500
 
-/** What may actually be towed: the lower of what the maker rates the vehicle for and what the licence allows. */
-data class TowingLimit(val kg: Int, val setBy: String)
+/**
+ * What may actually be towed: the lower of the model's registered towing capacity and the
+ * licence's trailer limit. [kg] 0 means none — the model is registered with no towing capacity.
+ * [vehicleRated] false: the registry holds no capacity for this vehicle (vans and trucks over
+ * 3.5 t have no model row), so the figure is the licence's alone.
+ */
+data class TowingLimit(val kg: Int, val setBy: String, val vehicleRated: Boolean)
 
 fun towingLimit(licence: RequiredLicence?, towBrakedKg: Int?): TowingLimit? {
     val byLicence = licence?.trailerLimitKg
     return when {
+        towBrakedKg == 0 -> TowingLimit(0, "נתוני הדגם", vehicleRated = true)
         byLicence != null && towBrakedKg != null ->
-            if (towBrakedKg < byLicence) TowingLimit(towBrakedKg, "כושר הגרירה של הרכב")
-            else TowingLimit(byLicence, "רישיון ${licence.grade}")
-        byLicence != null -> TowingLimit(byLicence, "רישיון ${licence.grade}")
-        towBrakedKg != null -> TowingLimit(towBrakedKg, "כושר הגרירה של הרכב")
+            if (towBrakedKg < byLicence) TowingLimit(towBrakedKg, "כושר הגרירה של הרכב", vehicleRated = true)
+            else TowingLimit(byLicence, "רישיון ${licence.grade}", vehicleRated = true)
+        byLicence != null -> TowingLimit(byLicence, "רישיון ${licence.grade}", vehicleRated = false)
+        towBrakedKg != null -> TowingLimit(towBrakedKg, "כושר הגרירה של הרכב", vehicleRated = true)
         else -> null
     }
+}
+
+/** One line for "מותר לגרור". */
+fun TowingLimit.describe(): String = when {
+    kg == 0 -> "לא — הדגם רשום ללא כושר גרירה"
+    vehicleRated -> "עד ${formatInt(kg)} ק״ג · לפי $setBy"
+    else -> "עד ${formatInt(kg)} ק״ג · לפי $setBy (כושר הגרירה של הרכב לא רשום)"
 }

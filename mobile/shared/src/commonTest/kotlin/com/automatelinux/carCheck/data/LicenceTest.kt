@@ -61,10 +61,14 @@ class LicenceTest {
         assertEquals(1_500, b?.trailerLimitKg)
         assertEquals(3_500, c1?.trailerLimitKg)
         // A car rated for 1,050 kg: the car sets the limit. Rated for 2,000: the B licence does.
-        assertEquals(TowingLimit(1_050, "כושר הגרירה של הרכב"), towingLimit(b, 1_050))
-        assertEquals(TowingLimit(1_500, "רישיון B"), towingLimit(b, 2_000))
-        // A heavy vehicle has no maker rating on file: the licence is all there is.
-        assertEquals(TowingLimit(3_500, "רישיון C1"), towingLimit(c1, null))
+        assertEquals(TowingLimit(1_050, "כושר הגרירה של הרכב", true), towingLimit(b, 1_050))
+        assertEquals(TowingLimit(1_500, "רישיון B", true), towingLimit(b, 2_000))
+        // A heavy vehicle has no model row: the licence is all there is, and it says so.
+        assertEquals(TowingLimit(3_500, "רישיון C1", false), towingLimit(c1, null))
+        // The Kangoo 27-967-84: its model is registered with capacity 0 — no towing at all,
+        // whatever the B licence would allow (its licence reads "אסור להתקין וו גרירה").
+        assertEquals(0, towingLimit(b, 0)?.kg)
+        assertEquals("לא — הדגם רשום ללא כושר גרירה", towingLimit(b, 0)?.describe())
         assertNull(towingLimit(null, null))
     }
 }

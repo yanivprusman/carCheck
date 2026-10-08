@@ -4,6 +4,7 @@ import com.automatelinux.carCheck.data.RegistrationStatus
 import com.automatelinux.carCheck.data.VehicleReport
 import com.automatelinux.carCheck.data.formatDate
 import com.automatelinux.carCheck.data.formatInt
+import com.automatelinux.carCheck.data.describe
 import com.automatelinux.carCheck.data.towingLimit
 
 /** The report as a WhatsApp-able paragraph: the headline facts, nothing that needs a table. */
@@ -21,7 +22,7 @@ fun VehicleReport.shareText(): String {
     }
     mirrorAsOf?.let { sb.append("מהעותק השמור של הקובץ מ-").append(formatDate(it) ?: it).append(" (המאגר הראשי מתעדכן)\n") }
     licence?.let { sb.append("רישיון נהיגה נדרש: ").append(it.grade).append(" (").append(it.because).append(")\n") }
-    towingLimit(licence, towBrakedKg)?.let { sb.append("מותר לגרור: עד ").append(formatInt(it.kg)).append(" ק״ג (לפי ").append(it.setBy).append(")\n") }
+    towingLimit(licence, towBrakedKg)?.let { sb.append("מותר לגרור: ").append(it.describe()).append('\n') }
     ownership?.let { sb.append("בעלות: ").append(it).append('\n') }
     if (ownershipHistory.isNotEmpty()) sb.append("ידיים: ").append(ownershipHistory.size).append('\n')
     kmAtLastTest?.let { sb.append("ק״מ בטסט האחרון: ").append(formatInt(it)).append('\n') }

@@ -74,6 +74,7 @@ data class VehicleReport(
     val driveTechnology: String?,
     val grossWeightKg: Int?,
     val curbWeightKg: Int?,
+    /** The model's registered towing capacity; 0 = registered with none (no towing approval), null = no model row. */
     val towBrakedKg: Int?,
     val towUnbrakedKg: Int?,
     val towHitch: Boolean?,
