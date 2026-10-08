@@ -53,4 +53,18 @@ class LicenceTest {
         assertNull(grade(VehicleKind.Heavy, "O2", "גרור נתמך", kg = 750))
         assertNull(grade(VehicleKind.Heavy, "T", "טרקטור", kg = 900))
     }
+
+    @Test
+    fun towingIsTheLowerOfVehicleAndLicence() {
+        val b = requiredLicence(VehicleKind.Car, "M1", null, 1_900, 5, null)
+        val c1 = requiredLicence(VehicleKind.Heavy, "N2", "משא", 3_995, null, null)
+        assertEquals(1_500, b?.trailerLimitKg)
+        assertEquals(3_500, c1?.trailerLimitKg)
+        // A car rated for 1,050 kg: the car sets the limit. Rated for 2,000: the B licence does.
+        assertEquals(TowingLimit(1_050, "כושר הגרירה של הרכב"), towingLimit(b, 1_050))
+        assertEquals(TowingLimit(1_500, "רישיון B"), towingLimit(b, 2_000))
+        // A heavy vehicle has no maker rating on file: the licence is all there is.
+        assertEquals(TowingLimit(3_500, "רישיון C1"), towingLimit(c1, null))
+        assertNull(towingLimit(null, null))
+    }
 }

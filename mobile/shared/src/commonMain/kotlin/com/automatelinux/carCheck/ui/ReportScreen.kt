@@ -68,6 +68,7 @@ import com.automatelinux.carCheck.data.formatInt
 import com.automatelinux.carCheck.data.formatUtcDateTime
 import com.automatelinux.carCheck.data.isoDateOrNull
 import com.automatelinux.carCheck.data.today
+import com.automatelinux.carCheck.data.towingLimit
 import com.automatelinux.carCheck.ui.components.PlateView
 import com.automatelinux.carCheck.ui.theme.LocalPalette
 import com.automatelinux.carCheck.ui.theme.Palette
@@ -123,6 +124,7 @@ fun ReportScreen(report: VehicleReport, photos: CarPhotos, host: HostActions, on
                 Licensing(report, host)
                 History(report)
                 Engine(report)
+                Towing(report)
                 Body(report)
                 Safety(report)
                 Emissions(report)
@@ -509,7 +511,7 @@ private fun History(report: VehicleReport) {
 @Composable
 private fun Engine(report: VehicleReport) {
     val any = listOf(report.fuel, report.engineModel, report.displacementCc, report.horsepower, report.drive, report.automatic,
-        report.driveTechnology, report.grossWeightKg, report.towBrakedKg, report.towHitch).any { it != null }
+        report.driveTechnology, report.grossWeightKg).any { it != null }
     if (!any) return
     Section("מנוע והנעה") {
         Fact("דלק", report.fuel)
@@ -521,11 +523,25 @@ private fun Engine(report: VehicleReport) {
         Fact("טכנולוגיה", report.driveTechnology?.takeUnless { it == "הנעה רגילה" })
         Fact("משקל כולל", report.grossWeightKg?.let { "${formatInt(it)} ק״ג" })
         Fact("משקל עצמי", report.curbWeightKg?.let { "${formatInt(it)} ק״ג" })
-        Fact("וו גרירה", yesNo(report.towHitch))
-        Fact("כושר גרירה", listOfNotNull(
-            report.towBrakedKg?.let { "${formatInt(it)} ק״ג עם בלמים" },
-            report.towUnbrakedKg?.let { "${formatInt(it)} בלי" },
-        ).joinToString(" · ").ifEmpty { null })
+    }
+}
+
+/**
+ * What this vehicle may tow: what the maker rates it for, what the licence it needs allows, and
+ * the lower of the two — the figure that actually applies.
+ */
+@Composable
+private fun Towing(report: VehicleReport) {
+    val limit = towingLimit(report.licence, report.towBrakedKg)
+    if (limit == null && report.towHitch == null && report.towUnbrakedKg == null) return
+    Section("גרירה") {
+        Fact("מותר לגרור", limit?.let { "עד ${formatInt(it.kg)} ק״ג · לפי ${it.setBy}" })
+        Fact("וו גרירה", when (report.towHitch) { true -> "מותקן"; false -> "לא רשום וו גרירה"; null -> null })
+        Fact("כושר גרירה עם בלמים", report.towBrakedKg?.let { "${formatInt(it)} ק״ג" })
+        Fact("כושר גרירה בלי בלמים", report.towUnbrakedKg?.let { "${formatInt(it)} ק״ג" })
+        report.licence?.trailerLimitKg?.let { kg ->
+            Fact("ברישיון ${report.licence.grade}", "נגרר עד ${formatInt(kg)} ק״ג" + if (report.licence.grade != "B") " · מעל לכך C+E" else "")
+        }
     }
 }
 
