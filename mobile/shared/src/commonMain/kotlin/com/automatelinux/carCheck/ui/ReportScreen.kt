@@ -76,11 +76,13 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
     val plateLayer = rememberGraphicsLayer()
     val summaryLayer = rememberGraphicsLayer()
     val footerLayer = rememberGraphicsLayer()
+    val pictureLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val share: () -> Unit = {
         scope.launch {
             val image = stackShareImage(
+                into = pictureLayer,
                 plate = plateLayer,
                 parts = listOf(summaryLayer, footerLayer),
                 background = p.page,

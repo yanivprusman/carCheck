@@ -3,6 +3,7 @@ package com.automatelinux.carCheck
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -124,7 +125,10 @@ class MainActivity : ComponentActivity(), HostActions {
                 clipData = ClipData.newRawUri(null, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            open(Intent.createChooser(send, null))
+            // We accept shared images ourselves (to read a plate), so we would offer ourselves our own report.
+            val chooser = Intent.createChooser(send, null)
+                .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this@MainActivity, MainActivity::class.java)))
+            open(chooser)
         }
     }
 
