@@ -29,6 +29,5 @@ fun VehicleReport.shareText(): String {
     if (recalls.isNotEmpty()) sb.append("⚠️ ריקול פתוח: ").append(recalls.size).append('\n')
     if (structuralChange == true) sb.append("⚠️ שינוי מבנה רשום\n")
     listPriceNis?.let { sb.append("מחיר מחירון בחדש: ₪").append(formatInt(it)).append('\n') }
-    sb.append("\nמקור: משרד התחבורה, data.gov.il")
-    return sb.toString()
+    return sb.toString().trimEnd()
 }

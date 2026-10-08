@@ -628,10 +628,8 @@ private fun Footer(report: VehicleReport) {
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }
-        Text(
-            "מקור: משרד התחבורה, data.gov.il" + (formatDate(report.mirrorAsOf ?: report.dataAsOf)?.let { " · נכון ל-$it" } ?: ""),
-            style = MaterialTheme.typography.bodyMedium,
-            color = p.inkDim,
-        )
+        formatDate(report.mirrorAsOf ?: report.dataAsOf)?.let {
+            Text("נכון ל-$it", style = MaterialTheme.typography.bodyMedium, color = p.inkDim)
+        }
     }
 }
