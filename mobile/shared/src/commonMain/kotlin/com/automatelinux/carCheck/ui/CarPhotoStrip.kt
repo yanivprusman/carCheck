@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import com.automatelinux.carCheck.data.CarPhoto
 import com.automatelinux.carCheck.data.CarPhotos
 import com.automatelinux.carCheck.data.CarPhotosResult
 import com.automatelinux.carCheck.data.VehicleReport
+import com.automatelinux.carCheck.data.encodeUrlComponent
 import com.automatelinux.carCheck.data.httpGetBytes
 import com.automatelinux.carCheck.ui.theme.LocalPalette
 import kotlinx.coroutines.async
@@ -59,9 +61,34 @@ private sealed class Thumb {
  * A strip of photos of the model under the headline. They are labelled as the model's, from
  * Wikipedia — the registry has no photo of the car itself, and a strip that let the reader think
  * otherwise would be lying. No matching article ⇒ no strip at all.
+ *
+ * Under it, always, a button that opens Google Images on this make, model and year. It works
+ * where Wikipedia cannot: the heavy-vehicle file names a model only by its code ("פיאט 250"),
+ * and Google's own results resolve that to the vehicle. It opens the browser rather than
+ * fetching results into the app — Google allows the one and blocks the other.
  */
 @Composable
 fun CarPhotoStrip(report: VehicleReport, host: HostActions) {
+    Column(Modifier.fillMaxWidth()) {
+        WikipediaPhotos(report, host)
+        imageSearchUrl(report)?.let { url ->
+            Row(Modifier.padding(top = 10.dp)) {
+                ActionChip("תמונות בגוגל", Icons.Filled.ImageSearch, Modifier.testTag("google-images")) { host.openUrl(url) }
+            }
+        }
+    }
+}
+
+/** Google Images for "<make> <commercial name or model code> <year>"; null when the registry names neither make nor model. */
+fun imageSearchUrl(report: VehicleReport): String? {
+    val name = report.commercialName ?: report.model
+    if (report.make == null && name == null) return null
+    val q = listOfNotNull(report.make, name, report.year?.toString()).joinToString(" ")
+    return "https://www.google.com/search?udm=2&q=" + encodeUrlComponent(q)
+}
+
+@Composable
+private fun WikipediaPhotos(report: VehicleReport, host: HostActions) {
     val p = LocalPalette.current
     val result by produceState<CarPhotosResult?>(null, report.plate) {
         value = CarPhotos.find(report.make, report.commercialName, report.model, report.year)

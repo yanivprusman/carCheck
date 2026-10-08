@@ -383,10 +383,15 @@ private fun RecallCard(r: Recall, host: HostActions) {
 }
 
 @Composable
-private fun ActionChip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+internal fun ActionChip(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val p = LocalPalette.current
     Row(
-        Modifier
+        modifier
             .clip(RoundedCornerShape(999.dp))
             .background(p.panel)
             .clickable(onClick = onClick)
