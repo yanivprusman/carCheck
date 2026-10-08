@@ -71,11 +71,9 @@ private enum class Tone { Good, Warn, Bad, Neutral }
 @Composable
 fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
     val p = LocalPalette.current
-    // The shared picture is the plate, the top of the report down to its history, and the source line —
-    // the facts a buyer asks about, short enough that a chat app does not shrink it past reading.
+    // The shared picture is the whole report under its plate — every card the screen shows, not a digest.
     val plateLayer = rememberGraphicsLayer()
-    val summaryLayer = rememberGraphicsLayer()
-    val footerLayer = rememberGraphicsLayer()
+    val reportLayer = rememberGraphicsLayer()
     val pictureLayer = rememberGraphicsLayer()
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -84,7 +82,7 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
             val image = stackShareImage(
                 into = pictureLayer,
                 plate = plateLayer,
-                parts = listOf(summaryLayer, footerLayer),
+                parts = listOf(reportLayer),
                 background = p.page,
                 density = density,
                 paddingPx = with(density) { 16.dp.toPx() },
@@ -101,20 +99,20 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp)
                 .navigationBarsPadding(),
         ) {
-            Column(Modifier.fillMaxWidth().recordInto(summaryLayer)) {
+            Column(Modifier.fillMaxWidth().recordInto(reportLayer)) {
                 Headline(report)
                 if (report.mainRegistryRefreshing) RefreshingBanner(report)
                 QuickStats(report)
                 for (r in report.recalls) RecallCard(r, host)
                 Licensing(report, host)
                 History(report)
+                Engine(report)
+                Body(report)
+                Safety(report)
+                Emissions(report)
+                Money(report)
+                Footer(report)
             }
-            Engine(report)
-            Body(report)
-            Safety(report)
-            Emissions(report)
-            Money(report)
-            Box(Modifier.fillMaxWidth().recordInto(footerLayer)) { Footer(report) }
             Spacer(Modifier.height(24.dp))
         }
     }
