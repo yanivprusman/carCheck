@@ -31,30 +31,15 @@ class CarPhotosTest {
     )
 
     @Test
-    fun aPrivateCarIsMakeCommercialNameAndYear() {
-        assertEquals("רנו KANGOO 2017", CarPhotos.query(report(VehicleKind.Car, "רנו", "KW0", commercialName = "KANGOO", year = 2017)))
+    fun aPrivateCarNeedsNoKindWord() {
+        assertNull(CarPhotos.kindWord(report(VehicleKind.Car, "רנו", "KW0", commercialName = "KANGOO", year = 2017)))
     }
 
     @Test
     fun aHeavyVehicleSaysWhatItIs() {
-        // Measured: "פיאט 250 2023" is Fiat 500s and F-250s; with "רכב מסחרי" it is Ducatos.
-        assertEquals(
-            "פיאט 250 2023 רכב מסחרי",
-            CarPhotos.query(report(VehicleKind.Heavy, "פיאט", "250", year = 2023, vehicleType = "משא", grossWeightKg = 3995)),
-        )
-        assertEquals(
-            "מאן 12163LL 2000 משאית",
-            CarPhotos.query(report(VehicleKind.Heavy, "מאן", "12163LL", year = 2000, vehicleType = "משא", grossWeightKg = 11990)),
-        )
-        assertEquals(
-            "וולבו B11R 2019 אוטובוס",
-            CarPhotos.query(report(VehicleKind.Heavy, "וולבו", "B11R", year = 2019, vehicleType = "אוטובוס")),
-        )
-    }
-
-    @Test
-    fun nothingToSearchWithoutMakeOrModel() {
-        assertNull(CarPhotos.query(report(VehicleKind.Car, null, "X")))
-        assertNull(CarPhotos.query(report(VehicleKind.Car, "רנו", null)))
+        assertEquals("רכב מסחרי", CarPhotos.kindWord(report(VehicleKind.Heavy, "פיאט", "250", vehicleType = "משא", grossWeightKg = 3995)))
+        assertEquals("משאית", CarPhotos.kindWord(report(VehicleKind.Heavy, "מאן", "12163LL", vehicleType = "משא", grossWeightKg = 11990)))
+        assertEquals("אוטובוס", CarPhotos.kindWord(report(VehicleKind.Heavy, "וולבו", "B11R", vehicleType = "אוטובוס")))
+        assertEquals("אופנוע", CarPhotos.kindWord(report(VehicleKind.Motorcycle, "ימאהה", "MT07")))
     }
 }

@@ -22,16 +22,26 @@ registry is mid-reload" by probing the file's row count, and says which.
 
 ## Photos of the model
 
-The registry has no photo of any car, so the report shows Google Images photos of the
-**model**, labelled as such. The phone asks this app's backend (`GET /api/photos?q=<make>
-<model> <year>[ <vehicle type>]`); the backend searches once per query with a real Chrome on
-an Xvfb display (`scripts/google-images.mjs` — Google refuses plain fetches and
-puppeteer-launched browsers), saves the photos under `/var/lib/carcheck/photos/<key>/`, and
-answers every later plate of that model and year from disk. Heavy vehicles are named only by a
-type code ("פיאט 250"), so their query adds what the vehicle is ("רכב מסחרי", "משאית"), which
-is what makes Google return Ducatos rather than Fiat 500s. If Google ever answers with its
-"unusual traffic" page the report says so; the browser profile is
-`/var/lib/carcheck/chrome-profile`.
+The registry has no photo of any car, so the report shows photos of the **model**, labelled as
+such and with their source. The phone asks this app's backend (`GET /api/photos?make=&model=
+&name=&year=&kind=`), which decides where they come from and keeps them under
+`/var/lib/carcheck/photos/<key>/`, so each lookup happens once and every later plate of that
+model and year is answered from disk (`lib/photo-store.ts`):
+
+- **Wikipedia** (`lib/wikipedia-photos.ts`) when the registry gives a commercial name and an
+  article about exactly that make and model exists: editor-chosen, freely licensed photos, the
+  car's own generation first (Commons file names start with their years).
+- **Google Images** (`lib/google-photos.ts`) for everything else — mostly vehicles over 3.5 t,
+  which the registry names only by a type code. The search runs in a real Chrome on an Xvfb
+  display (`scripts/google-images.mjs`; Google refuses plain fetches and puppeteer-launched
+  browsers), with its own profile at `/var/lib/carcheck/chrome-profile`. A result is shown only if
+  its page names the car's year, and then either the model code (when it is distinctive, e.g.
+  MAN's "12.163") or the model name most results agree on (Google resolves Fiat's "250" to
+  "דוקאטו"). MAN codes are searched as MAN writes them ("12163LL" → "12.163"), and a vague code
+  gets the vehicle kind added ("פיאט 250 2023 רכב מסחרי"). Searching the plate number itself
+  finds nothing about the car.
+
+`npm test` covers the selection rules.
 
 ## Layout
 

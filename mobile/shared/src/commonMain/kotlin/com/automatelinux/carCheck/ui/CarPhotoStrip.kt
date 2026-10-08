@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.automatelinux.carCheck.data.CarPhoto
 import com.automatelinux.carCheck.data.CarPhotos
 import com.automatelinux.carCheck.data.CarPhotosResult
+import com.automatelinux.carCheck.data.PhotoSource
 import com.automatelinux.carCheck.data.VehicleReport
 import com.automatelinux.carCheck.data.httpGetBytes
 import com.automatelinux.carCheck.ui.theme.LocalPalette
@@ -55,9 +56,10 @@ private sealed class Thumb {
 }
 
 /**
- * A strip of photos of the model under the headline, from Google Images by way of the backend.
- * Labelled as the model's — the registry has no photo of the car itself, and a strip that let
- * the reader think otherwise would be lying. Tapping a photo opens the same search in Google.
+ * A strip of photos of the model under the headline, from Wikipedia or Google by way of the
+ * backend. Labelled as the model's and with their source — the registry has no photo of the car
+ * itself, and a strip that let the reader think otherwise would be lying. A tap on a Wikipedia
+ * photo opens its Commons page; on a Google one, the search it came from.
  */
 @Composable
 fun CarPhotoStrip(report: VehicleReport, photos: CarPhotos, host: HostActions) {
@@ -87,29 +89,29 @@ fun CarPhotoStrip(report: VehicleReport, photos: CarPhotos, host: HostActions) {
                     }.awaitAll()
                 }
             }
-            val openSearch = { host.openUrl(CarPhotos.googleImagesUrl(r.query)) }
+            val openMore = { host.openUrl(r.moreUrl) }
             Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     itemsIndexed(r.photos, key = { _, ph -> ph.url }) { i, photo ->
-                        PhotoTile(photo, thumbs[photo.url], i, openSearch)
+                        PhotoTile(photo, thumbs[photo.url], i) { host.openUrl(photo.link ?: r.moreUrl) }
                     }
                 }
                 Row(
                     Modifier
                         .padding(top = 8.dp, start = 4.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = openSearch)
+                        .clickable(onClick = openMore)
                         .testTag("car-photos-source")
                         .padding(vertical = 4.dp, horizontal = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "תמונות של הדגם, לא של הרכב הזה · גוגל",
+                        "תמונות של הדגם, לא של הרכב הזה · " + if (r.source == PhotoSource.Wikipedia) "ויקיפדיה" else "גוגל",
                         style = MaterialTheme.typography.bodySmall,
                         color = p.inkDim,
                     )
                     Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Filled.OpenInNew, contentDescription = "פתיחת החיפוש בגוגל", tint = p.inkDim, modifier = Modifier.size(13.dp))
+                    Icon(Icons.Filled.OpenInNew, contentDescription = "פתיחת המקור", tint = p.inkDim, modifier = Modifier.size(13.dp))
                 }
             }
         }

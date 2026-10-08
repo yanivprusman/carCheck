@@ -1,31 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleCaptchaError, photosFor, selectPhotos } from "@/lib/car-photos";
+import { GoogleCaptchaError, googleImagesUrl, googlePhotos, googleQuery, searchCode, selectPhotos } from "@/lib/google-photos";
+import { photoKey, type StoredPhoto } from "@/lib/photo-store";
+import { wikipediaPhotos } from "@/lib/wikipedia-photos";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Photos of a model for the report: `?q=<make> <model> <year>[ <vehicle type>]`.
- * The first ask searches Google Images (several seconds); every later one is read from disk.
- * Only photos whose page names the car's year, and the model most of them agree on, are returned.
+ * Photos of a model for the report.
+ *
+ *   ?make=רנו&model=KW0&name=KANGOO&year=2017            a car with a commercial name
+ *   ?make=פיאט&model=250&year=2023&kind=רכב מסחרי        a heavy vehicle, named only by its code
+ *
+ * Wikipedia when the registry gives a commercial name and an article about exactly that model
+ * exists — its photos are editor-chosen, freely licensed and dated. Google Images for every other
+ * vehicle, checked against the code and year (lib/google-photos). Each lookup runs once; later
+ * asks are read from disk.
  */
 export async function GET(req: NextRequest) {
-  const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
-  if (q.length < 2 || q.length > 120) {
-    return NextResponse.json({ error: "q must be 2–120 characters" }, { status: 400 });
+  const sp = req.nextUrl.searchParams;
+  const make = sp.get("make")?.trim() ?? "";
+  const model = sp.get("model")?.trim() || null;
+  const name = sp.get("name")?.trim() || null;
+  const yearText = sp.get("year")?.trim();
+  const year = yearText && /^\d{4}$/.test(yearText) ? Number(yearText) : null;
+  const kind = sp.get("kind")?.trim() || null;
+  if (!make || !(name || model)) {
+    return NextResponse.json({ error: "make and model or name are required" }, { status: 400 });
   }
   try {
-    const { key, index, cached } = await photosFor(q);
+    if (name) {
+      const { index, cached } = await wikipediaPhotos(make, name, year);
+      if (index.photos.length > 0) {
+        return NextResponse.json({
+          source: "wikipedia",
+          cached,
+          moreUrl: index.articleUrl,
+          photos: index.photos.map((p) => served(photoKey("wikipedia", index.query), p)),
+        });
+      }
+    }
+    const code = (name ?? model)!;
+    const query = googleQuery(make, code, year, kind);
+    const { index, cached } = await googlePhotos(query);
     return NextResponse.json({
-      query: index.query,
-      fetchedAt: index.fetchedAt,
+      source: "google",
       cached,
-      // Everything the search found is kept on disk; only what passes selectPhotos is shown.
-      photos: selectPhotos(index.query, index.photos).map((p) => ({ url: `/api/photos/${key}/${p.file}`, alt: p.alt, width: p.width, height: p.height })),
+      moreUrl: googleImagesUrl(query),
+      // Everything the search found stays on disk; only what passes selectPhotos is shown.
+      photos: selectPhotos(query, searchCode(make, code), year, index.photos).map((p) => served(photoKey("google", query), p)),
     });
   } catch (e) {
     if (e instanceof GoogleCaptchaError) {
       return NextResponse.json({ error: "google-captcha", detail: e.message }, { status: 503 });
     }
-    return NextResponse.json({ error: "search-failed", detail: (e as Error).message }, { status: 502 });
+    return NextResponse.json({ error: "photos-failed", detail: (e as Error).message }, { status: 502 });
   }
+}
+
+function served(key: string, p: StoredPhoto) {
+  return { url: `/api/photos/${key}/${p.file}`, alt: p.alt, link: p.link ?? null };
 }

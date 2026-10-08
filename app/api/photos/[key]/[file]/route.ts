@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { PHOTO_ROOT } from "@/lib/car-photos";
+import { PHOTO_ROOT } from "@/lib/photo-store";
 
 export const dynamic = "force-dynamic";
 
