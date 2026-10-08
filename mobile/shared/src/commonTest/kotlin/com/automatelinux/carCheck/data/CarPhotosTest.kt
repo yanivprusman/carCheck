@@ -5,79 +5,56 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class CarPhotosTest {
-    private fun hit(he: String, en: String?) = CarPhotos.ArticleHit(he, en)
+    private fun report(
+        kind: VehicleKind,
+        make: String?,
+        model: String?,
+        commercialName: String? = null,
+        year: Int? = null,
+        vehicleType: String? = null,
+        grossWeightKg: Int? = null,
+    ) = VehicleReport(
+        plate = Plate.parse("12345678")!!, kind = kind, status = RegistrationStatus.Inactive,
+        make = make, makeCountry = null, model = model, commercialName = commercialName, trim = null, year = year,
+        color = null, bodyType = null, vehicleType = vehicleType, euCategory = null,
+        lastTest = null, onRoad = null, firstRegistration = null, ownership = null, chassis = null, engineNumber = null,
+        ownershipHistory = emptyList(),
+        fuel = null, engineModel = null, displacementCc = null, horsepower = null, drive = null, automatic = null,
+        driveTechnology = null, grossWeightKg = grossWeightKg, curbWeightKg = null, towBrakedKg = null,
+        towUnbrakedKg = null, towHitch = null,
+        doors = null, seats = null, tyreFront = null, tyreRear = null, tyreLoadCode = null, tyreSpeedCode = null,
+        safetyLevel = null, safetyScore = null, airbags = null, safetyFeatures = emptyList(),
+        pollutionGroup = null, greenIndex = null, co2Wltp = null, noxWltp = null, pmWltp = null, particleFilterFitted = null,
+        kmAtLastTest = null, structuralChange = null, gasConversion = null, colorChange = null, tyreChange = null, originality = null,
+        disabledTagSince = null, importType = null, recalls = emptyList(),
+        listPriceNis = null, importer = null, unavailable = emptyList(), dataAsOf = null,
+    )
 
     @Test
-    fun picksTheArticleAboutThisModelNotTheFirstHit() {
-        val hits = listOf(hit("טויוטה AE85", "Toyota AE85"), hit("טויוטה קורולה", "Toyota Corolla"))
-        assertEquals("Toyota Corolla", CarPhotos.pickArticle(hits, "טויוטה", "COROLLA")?.enTitle)
+    fun aPrivateCarIsMakeCommercialNameAndYear() {
+        assertEquals("רנו KANGOO 2017", CarPhotos.query(report(VehicleKind.Car, "רנו", "KW0", commercialName = "KANGOO", year = 2017)))
     }
 
     @Test
-    fun refusesAnotherMakesArticle() {
-        val hits = listOf(hit("מרצדס-בנץ סיטאן", "Mercedes-Benz Citan"))
-        assertNull(CarPhotos.pickArticle(hits, "רנו", "KANGOO"))
-    }
-
-    @Test
-    fun matchesThroughAccentsAndPunctuation() {
-        assertEquals("Škoda Octavia", CarPhotos.pickArticle(listOf(hit("סקודה אוקטביה", "Škoda Octavia")), "סקודה", "OCTAVIA")?.enTitle)
-        assertEquals("יונדאי i20", CarPhotos.pickArticle(listOf(hit("יונדאי i20", "Hyundai i20")), "יונדאי", "I-20")?.heTitle)
-    }
-
-    @Test
-    fun yearsFromFileNames() {
-        assertEquals(0, CarPhotos.yearDistance("File:2007-2010 Toyota Corolla (ZRE152R).jpg", 2008))
-        assertEquals(0, CarPhotos.yearDistance("File:2019–22 Toyota Corolla.jpg", 2021))
-        assertEquals(3, CarPhotos.yearDistance("File:2014 Toyota Corolla 1.8 LE.jpg", 2017))
-        assertEquals(1000, CarPhotos.yearDistance("File:Toyota Corolla E110 liftback.JPG", 2017))
-    }
-
-    @Test
-    fun ranksByYearAndDropsWhatIsNotTheModel() {
-        fun f(t: String, mime: String = "image/jpeg") = CarPhotos.FileInfo(t, mime, "thumb/$t", "page/$t")
-        val files = listOf(
-            f("File:1968 Toyota Corolla 1100 Deluxe.jpg"),
-            f("File:2013-2016 Toyota Corolla (ZRE172R) SX sedan.jpg"),
-            f("File:Toyota Corolla E110 liftback.JPG"),
-            f("File:Toyota logo Corolla.png", "image/png"),
-            f("File:Honda Civic 2015.jpg"),
-            f("File:Corolla badge.svg", "image/svg+xml"),
-        )
-        val ranked = CarPhotos.rankPhotos(files, "COROLLA", 2015).map { it.fileName }
+    fun aHeavyVehicleSaysWhatItIs() {
+        // Measured: "פיאט 250 2023" is Fiat 500s and F-250s; with "רכב מסחרי" it is Ducatos.
         assertEquals(
-            listOf(
-                "2013-2016 Toyota Corolla (ZRE172R) SX sedan.jpg",
-                "1968 Toyota Corolla 1100 Deluxe.jpg",
-                "Toyota Corolla E110 liftback.JPG",
-            ),
-            ranked,
+            "פיאט 250 2023 רכב מסחרי",
+            CarPhotos.query(report(VehicleKind.Heavy, "פיאט", "250", year = 2023, vehicleType = "משא", grossWeightKg = 3995)),
+        )
+        assertEquals(
+            "מאן 12163LL 2000 משאית",
+            CarPhotos.query(report(VehicleKind.Heavy, "מאן", "12163LL", year = 2000, vehicleType = "משא", grossWeightKg = 11990)),
+        )
+        assertEquals(
+            "וולבו B11R 2019 אוטובוס",
+            CarPhotos.query(report(VehicleKind.Heavy, "וולבו", "B11R", year = 2019, vehicleType = "אוטובוס")),
         )
     }
 
     @Test
-    fun heavyFileCodesResolveToTheirModel() {
-        fun art(make: String, model: String?) = CarPhotos.knownModel(make, model)?.enArticle
-        assertEquals("Fiat Ducato", art("פיאט", "250"))
-        assertEquals("Fiat Ducato", art("פיאט", "250E7MFC"))
-        assertEquals("Mercedes-Benz Sprinter", art("מרצדס בנץ", "SPRINTER 907.657"))
-        assertEquals("Mercedes-Benz Sprinter", art("מרצדס בנץ", "519CDI 906.657"))
-        assertEquals("Mercedes-Benz Sprinter", art("מרצדס בנץ", "907.657"))
-        assertEquals("Iveco Daily", art("איווקו", "70C18"))
-        assertEquals("Isuzu Elf", art("איסוזו", "NPR75"))
-        assertEquals("Isuzu Forward", art("איסוזו", "FSR90"))
-        assertEquals("Chevrolet Silverado", art("שברולט", "CK20743"))
-        assertEquals("Ford Super Duty", art("פורד", "W3B"))
-        assertEquals("Volvo FH", art("וולבו", "FH84FR"))
-        assertEquals("DAF CF", art("דאף-הולנד", "FAG CF340AD"))
-        assertEquals("DAF LF", art("דאף", "FA LF210H12"))
-    }
-
-    @Test
-    fun anUnknownCodeOrAnotherMakeGetsNothing() {
-        assertNull(CarPhotos.knownModel("פיאט", "500"))
-        assertNull(CarPhotos.knownModel("טויוטה", "250"))
-        assertNull(CarPhotos.knownModel("וולבו", "B11R"))
-        assertNull(CarPhotos.knownModel("פיאט", null))
+    fun nothingToSearchWithoutMakeOrModel() {
+        assertNull(CarPhotos.query(report(VehicleKind.Car, null, "X")))
+        assertNull(CarPhotos.query(report(VehicleKind.Car, "רנו", null)))
     }
 }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +18,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +39,6 @@ import com.automatelinux.carCheck.data.CarPhoto
 import com.automatelinux.carCheck.data.CarPhotos
 import com.automatelinux.carCheck.data.CarPhotosResult
 import com.automatelinux.carCheck.data.VehicleReport
-import com.automatelinux.carCheck.data.encodeUrlComponent
 import com.automatelinux.carCheck.data.httpGetBytes
 import com.automatelinux.carCheck.ui.theme.LocalPalette
 import kotlinx.coroutines.async
@@ -58,40 +55,15 @@ private sealed class Thumb {
 }
 
 /**
- * A strip of photos of the model under the headline. They are labelled as the model's, from
- * Wikipedia — the registry has no photo of the car itself, and a strip that let the reader think
- * otherwise would be lying. No matching article ⇒ no strip at all.
- *
- * Under it, always, a button that opens Google Images on this make, model and year. It works
- * where Wikipedia cannot: the heavy-vehicle file names a model only by its code ("פיאט 250"),
- * and Google's own results resolve that to the vehicle. It opens the browser rather than
- * fetching results into the app — Google allows the one and blocks the other.
+ * A strip of photos of the model under the headline, from Google Images by way of the backend.
+ * Labelled as the model's — the registry has no photo of the car itself, and a strip that let
+ * the reader think otherwise would be lying. Tapping a photo opens the same search in Google.
  */
 @Composable
-fun CarPhotoStrip(report: VehicleReport, host: HostActions) {
-    Column(Modifier.fillMaxWidth()) {
-        WikipediaPhotos(report, host)
-        imageSearchUrl(report)?.let { url ->
-            Row(Modifier.padding(top = 10.dp)) {
-                ActionChip("תמונות בגוגל", Icons.Filled.ImageSearch, Modifier.testTag("google-images")) { host.openUrl(url) }
-            }
-        }
-    }
-}
-
-/** Google Images for "<make> <commercial name or model code> <year>"; null when the registry names neither make nor model. */
-fun imageSearchUrl(report: VehicleReport): String? {
-    val name = report.commercialName ?: report.model
-    if (report.make == null && name == null) return null
-    val q = listOfNotNull(report.make, name, report.year?.toString()).joinToString(" ")
-    return "https://www.google.com/search?udm=2&q=" + encodeUrlComponent(q)
-}
-
-@Composable
-private fun WikipediaPhotos(report: VehicleReport, host: HostActions) {
+fun CarPhotoStrip(report: VehicleReport, photos: CarPhotos, host: HostActions) {
     val p = LocalPalette.current
     val result by produceState<CarPhotosResult?>(null, report.plate) {
-        value = CarPhotos.find(report.make, report.commercialName, report.model, report.year)
+        value = photos.find(report)
     }
     when (val r = result) {
         null -> PlaceholderRow()
@@ -106,40 +78,38 @@ private fun WikipediaPhotos(report: VehicleReport, host: HostActions) {
             val thumbs = remember(r) { mutableStateMapOf<String, Thumb>() }
             LaunchedEffect(r) {
                 coroutineScope {
-                    r.set.photos.map { photo ->
+                    r.photos.map { photo ->
                         async {
-                            val got = httpGetBytes(photo.thumbUrl)
+                            val got = httpGetBytes(photo.url)
                             val image = if (got.code in 200..299) decodeImage(got.bytes) else null
-                            thumbs[photo.thumbUrl] = image?.let { Thumb.Ready(it) } ?: Thumb.Failed
+                            thumbs[photo.url] = image?.let { Thumb.Ready(it) } ?: Thumb.Failed
                         }
                     }.awaitAll()
                 }
             }
+            val openSearch = { host.openUrl(CarPhotos.googleImagesUrl(r.query)) }
             Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp),
-                ) {
-                    itemsIndexed(r.set.photos, key = { _, ph -> ph.thumbUrl }) { i, photo ->
-                        PhotoTile(photo, thumbs[photo.thumbUrl], i) { host.openUrl(photo.pageUrl) }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    itemsIndexed(r.photos, key = { _, ph -> ph.url }) { i, photo ->
+                        PhotoTile(photo, thumbs[photo.url], i, openSearch)
                     }
                 }
                 Row(
                     Modifier
                         .padding(top = 8.dp, start = 4.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { host.openUrl(r.set.articleUrl) }
+                        .clickable(onClick = openSearch)
                         .testTag("car-photos-source")
                         .padding(vertical = 4.dp, horizontal = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "תמונות של הדגם, לא של הרכב הזה · ויקיפדיה",
+                        "תמונות של הדגם, לא של הרכב הזה · גוגל",
                         style = MaterialTheme.typography.bodySmall,
                         color = p.inkDim,
                     )
                     Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Filled.OpenInNew, contentDescription = "פתיחת הערך בוויקיפדיה", tint = p.inkDim, modifier = Modifier.size(13.dp))
+                    Icon(Icons.Filled.OpenInNew, contentDescription = "פתיחת החיפוש בגוגל", tint = p.inkDim, modifier = Modifier.size(13.dp))
                 }
             }
         }
@@ -162,7 +132,7 @@ private fun PhotoTile(photo: CarPhoto, thumb: Thumb?, index: Int, onOpen: () -> 
             null -> Unit
             is Thumb.Ready -> Image(
                 bitmap = thumb.image,
-                contentDescription = photo.fileName,
+                contentDescription = photo.alt,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

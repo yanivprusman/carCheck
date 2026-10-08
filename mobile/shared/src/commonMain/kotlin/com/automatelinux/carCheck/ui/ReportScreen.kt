@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.automatelinux.carCheck.data.CarPhotos
 import com.automatelinux.carCheck.data.Recall
 import com.automatelinux.carCheck.data.RegistrationStatus
 import com.automatelinux.carCheck.data.VehicleKind
@@ -77,7 +78,7 @@ import kotlinx.datetime.plus
 private enum class Tone { Good, Warn, Bad, Neutral }
 
 @Composable
-fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
+fun ReportScreen(report: VehicleReport, photos: CarPhotos, host: HostActions, onBack: () -> Unit) {
     val p = LocalPalette.current
     // The shared picture is the whole report under its plate — every card the screen shows, not a digest.
     val plateLayer = rememberGraphicsLayer()
@@ -115,7 +116,7 @@ fun ReportScreen(report: VehicleReport, host: HostActions, onBack: () -> Unit) {
         ) {
             Column(Modifier.fillMaxWidth().recordInto(reportLayer)) {
                 Headline(report)
-                CarPhotoStrip(report, host)
+                CarPhotoStrip(report, photos, host)
                 if (report.mainRegistryRefreshing) RefreshingBanner(report)
                 QuickStats(report)
                 for (r in report.recalls) RecallCard(r, host)
@@ -383,15 +384,10 @@ private fun RecallCard(r: Recall, host: HostActions) {
 }
 
 @Composable
-internal fun ActionChip(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
+private fun ActionChip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     val p = LocalPalette.current
     Row(
-        modifier
+        Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(p.panel)
             .clickable(onClick = onClick)

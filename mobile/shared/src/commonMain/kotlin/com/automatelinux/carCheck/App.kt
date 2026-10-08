@@ -55,7 +55,7 @@ fun App(model: CarCheckModel, host: HostActions) {
                             onPickPlate = model::search,
                         )
                     } else {
-                        ReportScreen(report = report, host = host, onBack = model::back)
+                        ReportScreen(report = report, photos = model.photos, host = host, onBack = model::back)
                     }
                 }
             }

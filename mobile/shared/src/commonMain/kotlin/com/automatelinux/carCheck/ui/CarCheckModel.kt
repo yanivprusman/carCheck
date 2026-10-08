@@ -1,6 +1,7 @@
 package com.automatelinux.carCheck.ui
 
 import androidx.compose.ui.graphics.ImageBitmap
+import com.automatelinux.carCheck.data.CarPhotos
 import com.automatelinux.carCheck.data.LookupResult
 import com.automatelinux.carCheck.data.OcrLine
 import com.automatelinux.carCheck.data.Plate
@@ -42,6 +43,8 @@ class CarCheckModel(
     private val scope: CoroutineScope,
     private val recents: RecentStore,
     private val lookup: VehicleLookup = VehicleLookup(),
+    /** Photos of the model; the backend searches each model once and keeps them. */
+    val photos: CarPhotos,
 ) {
     sealed class Notice {
         data object TooShort : Notice()

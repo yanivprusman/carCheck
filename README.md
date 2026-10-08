@@ -20,13 +20,26 @@ The main private-car file is replaced daily and is **empty for hours while it
 reloads**. The app tells the difference between "no such plate" and "the
 registry is mid-reload" by probing the file's row count, and says which.
 
+## Photos of the model
+
+The registry has no photo of any car, so the report shows Google Images photos of the
+**model**, labelled as such. The phone asks this app's backend (`GET /api/photos?q=<make>
+<model> <year>[ <vehicle type>]`); the backend searches once per query with a real Chrome on
+an Xvfb display (`scripts/google-images.mjs` — Google refuses plain fetches and
+puppeteer-launched browsers), saves the photos under `/var/lib/carcheck/photos/<key>/`, and
+answers every later plate of that model and year from disk. Heavy vehicles are named only by a
+type code ("פיאט 250"), so their query adds what the vehicle is ("רכב מסחרי", "משאית"), which
+is what makes Google return Ducatos rather than Fiat 500s. If Google ever answers with its
+"unusual traffic" page the report says so; the browser profile is
+`/var/lib/carcheck/chrome-profile`.
+
 ## Layout
 
 - `mobile/` — the app. KMP / Compose Multiplatform: all UI, models and the
   lookup are in `shared/commonMain`; `app/` is the Android launcher, a ViewModel
   wrapper, share/dial/copy intents, and the dev-flavour feedback widget.
-- `app/`, `lib/` — the Next.js side: this landing page and the feedback-lib
-  backend the dev-flavour widget reports to. It serves no vehicle data.
+- `app/`, `lib/` — the Next.js side: this landing page, the registry copy, the model
+  photos, and the feedback-lib backend the dev-flavour widget reports to.
 
 ## Build and install
 
