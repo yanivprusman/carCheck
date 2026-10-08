@@ -46,24 +46,77 @@ object CarPhotos {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    suspend fun find(make: String?, commercialName: String?, year: Int?): CarPhotosResult {
-        if (make.isNullOrBlank() || commercialName.isNullOrBlank()) return CarPhotosResult.None
+    suspend fun find(make: String?, commercialName: String?, model: String?, year: Int?): CarPhotosResult {
+        if (make.isNullOrBlank()) return CarPhotosResult.None
+        if (commercialName.isNullOrBlank()) {
+            val known = knownModel(make, model) ?: return CarPhotosResult.None
+            return fromArticle(EN_API, "en", known.enArticle, known.photoKey, year)
+        }
         val hits = try {
             search("$make $commercialName")
         } catch (e: PhotoException) {
             return CarPhotosResult.Failed(e.message ?: "search failed")
         }
         val hit = pickArticle(hits, make, commercialName) ?: return CarPhotosResult.None
-        val (api, title, host) = if (hit.enTitle != null) Triple(EN_API, hit.enTitle, "en") else Triple(HE_API, hit.heTitle, "he")
+        return if (hit.enTitle != null) fromArticle(EN_API, "en", hit.enTitle, commercialName, year)
+        else fromArticle(HE_API, "he", hit.heTitle, commercialName, year)
+    }
+
+    private suspend fun fromArticle(api: String, host: String, title: String, photoKey: String, year: Int?): CarPhotosResult {
         val files = try {
             images(api, title)
         } catch (e: PhotoException) {
             return CarPhotosResult.Failed(e.message ?: "images failed")
         }
-        val photos = rankPhotos(files, commercialName, year).take(MAX_PHOTOS)
+        val photos = rankPhotos(files, photoKey, year).take(MAX_PHOTOS)
         if (photos.isEmpty()) return CarPhotosResult.None
         val articleUrl = "https://$host.wikipedia.org/wiki/" + encodeUrlComponent(title.replace(' ', '_'))
         return CarPhotosResult.Found(CarPhotoSet(title, articleUrl, photos))
+    }
+
+    /**
+     * A model the registry names only by the manufacturer's internal code.
+     *
+     * The heavy-vehicle file (over 3.5 t: big vans, trucks, buses) has no commercial name at all,
+     * only `degem_nm` — "250" for a Fiat Ducato, "907.657" for a Sprinter — so there is nothing to
+     * search Wikipedia for. These are the codes that file actually holds most (counted 2026-10-08
+     * over its 420k rows) and whose meaning is certain; each points straight at its English article.
+     * A code not listed here gets no photos.
+     */
+    data class KnownModel(val makePrefix: String, val code: Regex, val enArticle: String, val photoKey: String)
+
+    val KNOWN_MODELS = listOf(
+        // Fiat's type number for the Ducato since 2006; the VIN carries it too (ZFA250…).
+        KnownModel("פיאט", Regex("^250"), "Fiat Ducato", "Ducato"),
+        // 906 / 907 are the Sprinter's generation codes, written alone or after "SPRINTER" / "519CDI".
+        KnownModel("מרצדס", Regex("(^|\\s)(SPRINTER|90[67]\\.)"), "Mercedes-Benz Sprinter", "Sprinter"),
+        KnownModel("מרצדס", Regex("^AROCS"), "Mercedes-Benz Arocs", "Arocs"),
+        KnownModel("מרצדס", Regex("^ATEGO"), "Mercedes-Benz Atego", "Atego"),
+        KnownModel("מרצדס", Regex("^ACTROS"), "Mercedes-Benz Actros", "Actros"),
+        // Daily type designations: gross tonnes, C/S chassis, horsepower/10 — 35S14, 50C18, 70C18.
+        KnownModel("איווקו", Regex("^\\d{2}[CS]\\d{2}"), "Iveco Daily", "Daily"),
+        // Isuzu's N-series (Elf) and F-series (Forward) trucks: NPR75, NQR, FRR90, FSR90.
+        KnownModel("איסוזו", Regex("^N[KMNPQ]R"), "Isuzu Elf", "Isuzu"),
+        KnownModel("איסוזו", Regex("^F[RSTV]R"), "Isuzu Forward", "Isuzu"),
+        // GM model codes: C/K/T + series (20 = 2500, 35 = 3500) + body — the heavy-duty Silverado.
+        KnownModel("שברולט", Regex("^C[KT][23]\\d{4}"), "Chevrolet Silverado", "Silverado"),
+        // Ford's VIN line/series code for the F-250/F-350 Super Duty: W2B, W3B.
+        KnownModel("פורד", Regex("^W[1-5][A-Z]$"), "Ford Super Duty", "Ford"),
+        KnownModel("וולבו", Regex("^FH"), "Volvo FH", "Volvo"),
+        KnownModel("וולבו", Regex("^FM"), "Volvo FM", "Volvo"),
+        KnownModel("וולבו", Regex("^FL"), "Volvo FL", "Volvo"),
+        KnownModel("וולבו", Regex("^FE"), "Volvo FE", "Volvo"),
+        // DAF prefixes the range with its axle layout: "FA LF210H12", "FAG CF340AD".
+        KnownModel("דאף", Regex("(^|\\s)LF"), "DAF LF", "DAF"),
+        KnownModel("דאף", Regex("(^|\\s)CF"), "DAF CF", "DAF"),
+        KnownModel("דאף", Regex("(^|\\s)XF"), "DAF XF", "DAF"),
+        KnownModel("מאן", Regex("^TG[LMSX]"), "MAN TG-range", "MAN"),
+    )
+
+    fun knownModel(make: String, model: String?): KnownModel? {
+        val m = model?.trim()?.uppercase()?.takeIf { it.isNotEmpty() } ?: return null
+        val mk = normalize(make)
+        return KNOWN_MODELS.firstOrNull { mk.startsWith(normalize(it.makePrefix)) && it.code.containsMatchIn(m) }
     }
 
     data class ArticleHit(val heTitle: String, val enTitle: String?)

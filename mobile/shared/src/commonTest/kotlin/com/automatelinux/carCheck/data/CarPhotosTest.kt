@@ -54,4 +54,30 @@ class CarPhotosTest {
             ranked,
         )
     }
+
+    @Test
+    fun heavyFileCodesResolveToTheirModel() {
+        fun art(make: String, model: String?) = CarPhotos.knownModel(make, model)?.enArticle
+        assertEquals("Fiat Ducato", art("פיאט", "250"))
+        assertEquals("Fiat Ducato", art("פיאט", "250E7MFC"))
+        assertEquals("Mercedes-Benz Sprinter", art("מרצדס בנץ", "SPRINTER 907.657"))
+        assertEquals("Mercedes-Benz Sprinter", art("מרצדס בנץ", "519CDI 906.657"))
+        assertEquals("Mercedes-Benz Sprinter", art("מרצדס בנץ", "907.657"))
+        assertEquals("Iveco Daily", art("איווקו", "70C18"))
+        assertEquals("Isuzu Elf", art("איסוזו", "NPR75"))
+        assertEquals("Isuzu Forward", art("איסוזו", "FSR90"))
+        assertEquals("Chevrolet Silverado", art("שברולט", "CK20743"))
+        assertEquals("Ford Super Duty", art("פורד", "W3B"))
+        assertEquals("Volvo FH", art("וולבו", "FH84FR"))
+        assertEquals("DAF CF", art("דאף-הולנד", "FAG CF340AD"))
+        assertEquals("DAF LF", art("דאף", "FA LF210H12"))
+    }
+
+    @Test
+    fun anUnknownCodeOrAnotherMakeGetsNothing() {
+        assertNull(CarPhotos.knownModel("פיאט", "500"))
+        assertNull(CarPhotos.knownModel("טויוטה", "250"))
+        assertNull(CarPhotos.knownModel("וולבו", "B11R"))
+        assertNull(CarPhotos.knownModel("פיאט", null))
+    }
 }

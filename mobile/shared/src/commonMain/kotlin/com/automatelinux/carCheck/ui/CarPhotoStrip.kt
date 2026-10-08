@@ -64,7 +64,7 @@ private sealed class Thumb {
 fun CarPhotoStrip(report: VehicleReport, host: HostActions) {
     val p = LocalPalette.current
     val result by produceState<CarPhotosResult?>(null, report.plate) {
-        value = CarPhotos.find(report.make, report.commercialName, report.year)
+        value = CarPhotos.find(report.make, report.commercialName, report.model, report.year)
     }
     when (val r = result) {
         null -> PlaceholderRow()
