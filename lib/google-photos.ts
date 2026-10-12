@@ -18,7 +18,23 @@ export class GoogleCaptchaError extends Error {}
  */
 export function searchCode(make: string, code: string): string {
   const man = /^מאן/.test(make) && code.match(/^(\d{1,2})(\d{3})[A-Z]*$/);
-  return man ? `${man[1]}.${man[2]}` : code;
+  if (man) return `${man[1]}.${man[2]}`;
+  // A model name run together with a type number: Mercedes' "ANTOS963020" is an Antos, type
+  // 963.020. Searched whole, Google matches nothing and returns any 2018 Mercedes — sedans, for a
+  // 26-tonne truck (measured 2026-10-12). The name is what its pages carry.
+  const named = code.match(/^([A-Z]{3,})\d{4,}$/);
+  return named ? named[1] : code;
+}
+
+/**
+ * What a page naming this model contains, squeezed like alnum: the code without a trailing letter
+ * suffix when that leaves a code still worth matching — Iveco's "50C15V" is listed as "50C15" and
+ * "50 C 15"; "NPR75" and "ANTOS" stay as they are.
+ */
+export function nameKey(code: string): string {
+  const key = alnum(code);
+  const bare = key.replace(/[a-z]+$/, "");
+  return bare.length >= 4 && /\d/.test(bare) ? bare : key;
 }
 
 /** A code specific enough that pages naming it are about this model ("12.163", "NPR75"), unlike "250". */
@@ -26,14 +42,21 @@ export function distinctive(code: string): boolean {
   return alnum(code).length >= 4 && /\d/.test(code);
 }
 
+/** A model name rather than a code ("ANTOS", "DAILY"): it pins the model down by itself. */
+export function isModelName(code: string): boolean {
+  return /^[A-Z]{4,}$/i.test(code);
+}
+
 /**
  * "<make> <model> <year>", and what kind of vehicle it is only when the model code alone would
  * not pin it down: "פיאט 250 2023" is Fiat 500s and F-250s, "פיאט 250 2023 רכב מסחרי" Ducatos —
- * while "מאן 12.163 2000 משאית" loses every 12.163 that "מאן 12.163 2000" finds.
+ * while "מאן 12.163 2000 משאית" loses every 12.163 that "מאן 12.163 2000" finds, and "מרצדס בנץ
+ * ANTOS 2018 משאית" turns up Hebrew pages about every Mercedes truck and a Sprinter, where without
+ * it nineteen of twenty are 2018 Antoses (measured 2026-10-12).
  */
 export function googleQuery(make: string, model: string, year: number | null, kind: string | null): string {
   const code = searchCode(make, model);
-  return [make, code, year?.toString(), distinctive(code) ? null : kind].filter(Boolean).join(" ");
+  return [make, code, year?.toString(), distinctive(code) || isModelName(code) ? null : kind].filter(Boolean).join(" ");
 }
 
 export function alnum(s: string): string {
@@ -67,22 +90,26 @@ export function mentionsYear(alt: string, year: number): boolean {
  * 1. Keep only photos whose text names the car's production year.
  * 2. If the model code is distinctive and at least two of those name it, keep only those —
  *    a page that says "MAN 12.163 … 2000" is about this truck.
+ *    The same holds for a model name the query carries ("ANTOS").
  * 3. Otherwise find the word most of them share that the query does not already say — the model
  *    name Google resolved the code to ("דוקאטו" for "פיאט 250"). If more than half agree on one,
  *    keep only the photos that carry it; that drops the odd "סקודו" among the Ducatos.
+ * 4. A code pages would name, that none of them do, with no model they agree on: the pages are
+ *    about the make, not this vehicle — Mercedes sedans for an Antos truck. No photos.
  * Nothing left ⇒ no photos, rather than wrong ones.
  */
 export function selectPhotos<T extends { alt: string }>(query: string, code: string, year: number | null, photos: T[], max = 8): T[] {
   const dated = year ? photos.filter((p) => mentionsYear(p.alt, year)) : photos;
   if (dated.length === 0) return [];
-  if (distinctive(code)) {
-    const key = alnum(code);
+  const key = nameKey(code);
+  const nameable = key.length >= 4;
+  if (nameable) {
     const named = dated.filter((p) => alnum(p.alt).includes(key));
     if (named.length >= 2) return named.slice(0, max);
   }
   const top = agreedWord(query, dated);
-  const agreed = top ? dated.filter((p) => tokens(p.alt).includes(top)) : dated;
-  return agreed.slice(0, max);
+  if (top) return dated.filter((p) => tokens(p.alt).includes(top)).slice(0, max);
+  return nameable ? [] : dated.slice(0, max);
 }
 
 /**

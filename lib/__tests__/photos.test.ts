@@ -9,6 +9,34 @@ test("MAN codes are searched the way MAN writes them", () => {
   assert.equal(searchCode("פיאט", "250"), "250");
 });
 
+test("a model name run together with its type number is searched by the name", () => {
+  assert.equal(searchCode("מרצדס בנץ", "ANTOS963020"), "ANTOS");
+  assert.equal(searchCode("איסוזו", "NPR75"), "NPR75");
+  assert.equal(searchCode("איווקו", "50C15V"), "50C15V");
+  // Measured: with "משאית" the answer was Sprinters; without it, 2018 Antoses.
+  assert.equal(googleQuery("מרצדס בנץ", "ANTOS963020", 2018, "משאית"), "מרצדס בנץ ANTOS 2018");
+});
+
+test("pages about the make, naming no model, give no photos", () => {
+  // Measured 2026-10-12: Google's answer for "מרצדס בנץ ANTOS963020 2018", a 26-tonne truck.
+  const photos = [
+    { alt: "מרצדס 2018 - מחירון ומפרט | Carzone" },
+    { alt: "מרצדס S קלאס 2018 יד שניה - אוטו" },
+    { alt: "מרצדס E קלאס 2018 יד שניה - אוטו" },
+    { alt: "מרצדס-בנץ A-class 2018 AMG A 250 אוט׳ 2.0 (218 כ״ס) | מחירון יד2" },
+  ];
+  assert.deepEqual(selectPhotos("מרצדס בנץ ANTOS 2018", "ANTOS", 2018, photos), []);
+});
+
+test("a code is matched without its letter suffix, the way listings write it", () => {
+  const photos = [
+    { alt: "2009 Iveco Daily 50C15 (PSV) - Coach & Bus Market" },
+    { alt: "IVECO Daily II 50 C 15 2009 Box Photos and Info" },
+    { alt: "סוזוקי סוויפט 2009 1.5 GLX אוט' יד שניה" },
+  ];
+  assert.deepEqual(selectPhotos("איווקו 50C15V 2009", "50C15V", 2009, photos).length, 2);
+});
+
 test("the vehicle kind is added only when the code alone is ambiguous", () => {
   // Measured: "פיאט 250 2023" is Fiat 500s; with "רכב מסחרי" it is Ducatos.
   assert.equal(googleQuery("פיאט", "250", 2023, "רכב מסחרי"), "פיאט 250 2023 רכב מסחרי");
