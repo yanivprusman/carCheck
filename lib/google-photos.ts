@@ -19,6 +19,15 @@ export class GoogleCaptchaError extends Error {}
 export function searchCode(make: string, code: string): string {
   const man = /^מאן/.test(make) && code.match(/^(\d{1,2})(\d{3})[A-Z]*$/);
   if (man) return `${man[1]}.${man[2]}`;
+  // MAN's TG range runs series, tonnes, horsepower, axles and options together:
+  // "TGS354308X4BBNNME6" is a TGS 35.430 8x4, "TGE51804X2SB…" a TGE 5.180. Searched whole it finds
+  // nothing of its own; as "TGS 35.430", pages about that truck.
+  // Undotted, the axle count ("4X2") is what tells where the tonnes end: "TGE51804X2" is 5 + 180.
+  const tg = /^מאן/.test(make) && (code.match(/^(TG[A-Z])(\d{1,2})(\d{3})\dX\d/) || code.match(/^(TG[A-Z])\s*(\d{1,2})\.(\d{3})/));
+  if (tg) return `${tg[1]} ${tg[2]}.${tg[3]}`;
+  // Hino's chassis codes end in a cab letter the world drops: "XJC740L" is listed as "XJC740".
+  const hino = /^הינו/.test(make) && code.match(/^([A-Z]{3}\d{3})[LR]$/);
+  if (hino) return hino[1];
   // A model name run together with a type number: Mercedes' "ANTOS963020" is an Antos, type
   // 963.020. Searched whole, Google matches nothing and returns any 2018 Mercedes — sedans, for a
   // 26-tonne truck (measured 2026-10-12). The name is what its pages carry.

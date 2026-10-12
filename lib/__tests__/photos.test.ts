@@ -9,6 +9,17 @@ test("MAN codes are searched the way MAN writes them", () => {
   assert.equal(searchCode("פיאט", "250"), "250");
 });
 
+test("MAN's TG range and Hino's chassis codes are searched the way their listings write them", () => {
+  // Measured 2026-10-12: whole, each found nothing of its own; rewritten, pages about that truck.
+  assert.equal(searchCode("מאן", "TGS354308X4BBNNME6"), "TGS 35.430");
+  assert.equal(searchCode("מאן", "TGE51804X2SBPVL4H3"), "TGE 5.180");
+  assert.equal(searchCode("מאן", "TGL122204X2BLCCGEU"), "TGL 12.220");
+  assert.equal(searchCode("מאן", "TGM 13.250BL"), "TGM 13.250");
+  assert.equal(searchCode("מאן", "TGM15.240BL"), "TGM 15.240");
+  assert.equal(searchCode("הינו", "XJC740L"), "XJC740");
+  assert.equal(searchCode("איסוזו", "FRR90"), "FRR90");
+});
+
 test("a model name run together with its type number is searched by the name", () => {
   assert.equal(searchCode("מרצדס בנץ", "ANTOS963020"), "ANTOS");
   assert.equal(searchCode("איסוזו", "NPR75"), "NPR75");
